@@ -31,7 +31,7 @@ const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
   const handlePressIn = () => {
     Animated.spring(scale, {
       toValue: 0.95,
-      useNativeDriver: true,
+      useNativeDriver: false,
       speed: 20,
       bounciness: 6,
     }).start();
@@ -40,7 +40,7 @@ const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: false,
       speed: 16,
       bounciness: 7,
     }).start();
