@@ -1,22 +1,20 @@
-# Konuşma Terapisi Uygulaması
+# Deprem Destek Prototipi
 
-Bu Expo + React Native projesi, çocukların telaffuz pratiği yapmasına yardımcı olmak için hazırlanmış eğlenceli bir mobil uygulamadır. Uygulama yalnızca destekleyici bir araçtır; herhangi bir teşhis koymaz veya profesyonel terapi hizmetinin yerini almaz.
+Bu Expo ve React Native uygulamasi, deprem aninda guvenli alan farkindaligi ve durum paylasimini simule eder. Tamamen prototip amacli oldugu icin gercek acil yardim veya konum garantisi vermez.
 
-## Çalıştırma
+## Ozellikler
+- Guvenli alan analizi adimi ile temel risk hatirlatmalari
+- Durum bildirimi akisi (iyiyim / yardim lazim)
+- Yakindaki kisilere ait mock rehber listesi
 
-Projeyi yerel ortamınızda başlatmak için:
+## Kurulum
+Projeyi yerel ortamda calistirmak icin terminalde asagidaki adimlari uygulayin:
 
 ```bash
 npm install
 npx expo start
-
-### Konuşmayı Metne Çevirme (STT)
-- Native (Android/iOS) için konuşmayı metne çevirme `@react-native-voice/voice` ile yapılır ve Expo Go yerine Development Build gerektirir:
-  1) Android izinleri eklendi (RECORD_AUDIO). Development build oluşturun:
-     - `npx expo prebuild -p android`
-     - `npx expo run:android`
-  2) Metro’yu dev client ile başlatın: `npx expo start --dev-client`
-- Web için tarayıcıların Web Speech API’si kullanılır. `npx expo start --web` ile çalışır; tarayıcı mikrofon iznini onaylayın.
 ```
 
-Expo Metro sunucusu açıldıktan sonra, mobil cihazınızdaki Expo Go uygulamasıyla QR kodu okutarak veya emülatör/simülatör üzerinden uygulamayı deneyebilirsiniz.
+## Notlar
+- Kamera, konum ve bildirim fonksiyonlari su anda yalnizca mock olarak yer aliyor.
+- Uygulama icerigi aile odakli bir yonlendirme senaryosunu temsil eder.
