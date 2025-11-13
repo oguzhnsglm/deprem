@@ -1,8 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, SafeAreaView, StyleSheet } from 'react-native';
 
-const ScreenWrapper = ({ children }) => {
+const VARIANTS = {
+  pink: {
+    background: ['#fff1f2', '#ffe4e6'],
+    blobTop: 'rgba(251, 207, 232, 0.6)',
+    blobBottom: 'rgba(254, 226, 226, 0.55)',
+  },
+  green: {
+    background: ['#c7f9cc', '#e8f8f5'],
+    blobTop: 'rgba(74, 222, 128, 0.35)',
+    blobBottom: 'rgba(187, 247, 208, 0.5)',
+  },
+};
+
+const ScreenWrapper = ({ children, variant = 'pink' }) => {
   const pulse = useRef(new Animated.Value(0)).current;
+  const scheme = VARIANTS[variant] || VARIANTS.pink;
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -25,7 +39,7 @@ const ScreenWrapper = ({ children }) => {
 
   const background = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#311172', '#4b1bb0'],
+    outputRange: scheme.background,
   });
 
   const blobTopTranslate = pulse.interpolate({
@@ -42,11 +56,17 @@ const ScreenWrapper = ({ children }) => {
     <Animated.View style={[styles.root, { backgroundColor: background }]}>
       <Animated.View
         pointerEvents="none"
-        style={[styles.blobTop, { transform: [{ translateY: blobTopTranslate }] }]}
+        style={[
+          styles.blobTop,
+          { backgroundColor: scheme.blobTop, transform: [{ translateY: blobTopTranslate }] },
+        ]}
       />
       <Animated.View
         pointerEvents="none"
-        style={[styles.blobBottom, { transform: [{ translateX: blobBottomTranslate }] }]}
+        style={[
+          styles.blobBottom,
+          { backgroundColor: scheme.blobBottom, transform: [{ translateX: blobBottomTranslate }] },
+        ]}
       />
       <SafeAreaView style={styles.safeArea}>{children}</SafeAreaView>
     </Animated.View>
@@ -69,7 +89,6 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 200,
-    backgroundColor: 'rgba(233, 213, 255, 0.35)',
   },
   blobBottom: {
     position: 'absolute',
@@ -78,7 +97,6 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 200,
-    backgroundColor: 'rgba(165, 180, 252, 0.35)',
   },
 });
 

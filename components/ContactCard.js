@@ -1,16 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const ContactCard = ({ name, relation, phone }) => {
+const ContactCard = ({ name, relation, phone, email, closeness }) => {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.name}>{name}</Text>
+        <View style={[styles.badge, styles.closenessBadge]}>
+          <Text style={styles.badgeText}>{closeness}</Text>
+        </View>
+      </View>
+      <View style={styles.metaRow}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{relation}</Text>
         </View>
+        <Text style={styles.email}>{email}</Text>
       </View>
-      <Text style={styles.caption}>Hizli arama / mesaj</Text>
+      <Text style={styles.caption}>Hızlı arama / mesaj</Text>
       <Text style={styles.phone}>{phone}</Text>
     </View>
   );
@@ -18,13 +24,13 @@ const ContactCard = ({ name, relation, phone }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: '#fff7f9',
     borderRadius: 18,
     padding: 20,
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    shadowColor: '#0b021f',
+    borderColor: '#fecdd3',
+    shadowColor: 'rgba(190, 24, 93, 0.18)',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 14,
@@ -36,35 +42,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   name: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fdf4ff',
+    color: '#831843',
     letterSpacing: 0.3,
   },
   badge: {
-    backgroundColor: 'rgba(167, 139, 250, 0.3)',
+    backgroundColor: '#ffe4e6',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.6)',
+    borderColor: '#fda4af',
+  },
+  closenessBadge: {
+    backgroundColor: '#fbcfe8',
   },
   badgeText: {
-    color: '#ede9fe',
+    color: '#9d174d',
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.6,
-    textTransform: 'uppercase',
+  },
+  email: {
+    fontSize: 14,
+    color: '#be185d',
+    fontWeight: '600',
   },
   caption: {
     fontSize: 14,
-    color: 'rgba(237, 233, 254, 0.8)',
+    color: '#0f172a',
     marginBottom: 4,
   },
   phone: {
     fontSize: 18,
-    color: '#ddd6fe',
+    color: '#047857',
     fontWeight: '700',
     letterSpacing: 0.8,
   },

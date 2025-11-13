@@ -1,11 +1,43 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Animated, Pressable, Text, StyleSheet } from 'react-native';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
+const COLOR_SCHEMES = {
+  primary: {
+    start: '#f9a8d4',
+    end: '#ec4899',
+    shadow: '#9f1239',
+    ripple: 'rgba(255, 255, 255, 0.25)',
+  },
+  mint: {
+    start: '#34d399',
+    end: '#059669',
+    shadow: '#064e3b',
+    ripple: 'rgba(255, 255, 255, 0.2)',
+  },
+  danger: {
+    start: '#fb7185',
+    end: '#dc2626',
+    shadow: '#7f1d1d',
+    ripple: 'rgba(252, 165, 165, 0.35)',
+  },
+};
+
+const PrimaryButton = ({ title, onPress, style, textStyle, colorScheme = 'primary', ...rest }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(0)).current;
+  const scheme = useMemo(() => {
+    if (typeof colorScheme === 'string') {
+      return COLOR_SCHEMES[colorScheme] || COLOR_SCHEMES.primary;
+    }
+    return {
+      start: colorScheme.start || COLOR_SCHEMES.primary.start,
+      end: colorScheme.end || COLOR_SCHEMES.primary.end,
+      shadow: colorScheme.shadow || COLOR_SCHEMES.primary.shadow,
+      ripple: colorScheme.ripple || COLOR_SCHEMES.primary.ripple,
+    };
+  }, [colorScheme]);
 
   useEffect(() => {
     const pulsate = Animated.loop(
@@ -20,7 +52,7 @@ const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
 
   const backgroundColor = glow.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#9b5df5', '#7c3aed'],
+    outputRange: [scheme.start, scheme.end],
   });
 
   const shadowOpacity = glow.interpolate({
@@ -49,7 +81,7 @@ const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      android_ripple={{ color: 'rgba(255, 255, 255, 0.25)' }}
+      android_ripple={{ color: scheme.ripple }}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -60,6 +92,7 @@ const PrimaryButton = ({ title, onPress, style, textStyle, ...rest }) => {
           transform: [{ scale }],
           backgroundColor,
           shadowOpacity,
+          shadowColor: scheme.shadow,
         },
       ]}
       {...rest}
@@ -78,7 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 10,
     elevation: 6,
-    shadowColor: '#1f0a4e',
+    shadowColor: '#831843',
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,
   },

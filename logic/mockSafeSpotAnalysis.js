@@ -1,4 +1,4 @@
 export const getMockSafeSpotAdvice = () =>
-  'Odanizda sabitlenmemis dolaplardan, cam yuzeylerden ve devrilebilecek esyalardan uzaklasin. Ic duvar kosesinde yere yakin cokerken basinizi kolunuzla koruyun.';
+  'Odanızda sabitlenmemiş dolaplardan, cam yüzeylerden ve devrilebilecek eşyalardan uzaklaşın. İç duvar köşesinde yere yakın çökerken başınızı kolunuzla koruyun.';
 
 export default getMockSafeSpotAdvice;

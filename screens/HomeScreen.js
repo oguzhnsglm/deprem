@@ -1,37 +1,94 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
+import { getEarthquakesByCity } from '../logic/mockEarthquakes';
+import { getProfilePreferences } from '../logic/profileStore';
 
 const HomeScreen = ({ navigation }) => {
+  const [prefs, setPrefs] = useState(getProfilePreferences());
+
+  useFocusEffect(
+    useCallback(() => {
+      setPrefs(getProfilePreferences());
+    }, [])
+  );
+
+  const city = prefs.city || 'İstanbul';
+  const alertThreshold = Number(prefs.threshold || 5);
+  const profileInitials = `${prefs.name?.[0] || ''}${prefs.surname?.[0] || ''}`.trim().toUpperCase() || 'P';
+
+  const earthquakes = useMemo(() => getEarthquakesByCity(city), [city]);
+  const informativeEvents = useMemo(
+    () => earthquakes.filter((event) => event.magnitude >= 2),
+    [earthquakes]
+  );
+  const alertEvents = useMemo(
+    () => earthquakes.filter((event) => event.magnitude >= alertThreshold),
+    [earthquakes, alertThreshold]
+  );
+
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.hero}>
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>Aile Destek Modu</Text>
-          </View>
-          <Text style={styles.title}>Deprem Ani Yardimcisi</Text>
-          <Text style={styles.subtitle}>
-            Panik aninda sakin kalman icin, evde guvenli noktaya ulasmani ve yakinlarina hizlica haber vermeni
-            kolaylastirir.
+          <TouchableOpacity
+            style={styles.profileFab}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.85}
+            hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
+          >
+            <Text style={styles.profileFabText}>Profilim</Text>
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>Son Uyarılar</Text>
+          <Text style={styles.heroHint}>
+            {city} için son sarsıntılar (2.0+). Kaynak: Google Deprem Haritaları örnek datası.
           </Text>
-        </View>
-
-        <View style={styles.quickTips}>
-          <Text style={styles.quickTipsTitle}>Hizli Hatirlatma</Text>
-          <View>
-            <Text style={styles.tipItem}>- Sakin nefes al ve esyalardan uzaklas.</Text>
-            <Text style={styles.tipItem}>- Ic duvar kosesi veya saglam mobilya yaninda korun.</Text>
-            <Text style={styles.tipItem}>- Durumunu yakininla paylasmayi unutma.</Text>
-          </View>
+          {informativeEvents.length === 0 ? (
+            <Text style={styles.emptyText}>Şu anda bilgi amaçlı kayıt bulunmuyor.</Text>
+          ) : (
+            informativeEvents.slice(0, 5).map((event) => (
+              <View key={event.id} style={styles.eventRow}>
+                <Text style={styles.eventMagnitude}>{event.magnitude.toFixed(1)}</Text>
+                <View style={styles.eventDetails}>
+                  <Text style={styles.eventLocation}>{event.location}</Text>
+                  <Text style={styles.eventMeta}>
+                    {new Date(event.time).toLocaleString('tr-TR')} · {event.depthKm} km
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+          <Text style={styles.cityNote}>Profilimde seçili şehir: {city}</Text>
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton title="Guvenli Alan Analizi" onPress={() => navigation.navigate('SafeSpot')} />
-          <PrimaryButton title="Acil Durum" onPress={() => navigation.navigate('EmergencyStatus')} />
-          <PrimaryButton title="Yakinlarim" onPress={() => navigation.navigate('Contacts')} />
+          <PrimaryButton
+            title="Güvenli Alan Analizi"
+            onPress={() => navigation.navigate('SafeSpot')}
+            colorScheme="mint"
+          />
+          <PrimaryButton
+            title="Acil Durum"
+            onPress={() => navigation.navigate('EmergencyStatus')}
+            colorScheme="danger"
+            style={styles.emergencyButton}
+            textStyle={styles.emergencyButtonText}
+          />
+          <PrimaryButton
+            title="Acil Durum Kişileri"
+            onPress={() => navigation.navigate('Contacts')}
+            colorScheme="mint"
+          />
+          <PrimaryButton
+            title="Deprem Geçmişi"
+            onPress={() => navigation.navigate('EarthquakeFeed', { city })}
+            colorScheme="mint"
+          />
         </View>
+
+        <View style={styles.alertsGrid} />
       </View>
     </ScreenWrapper>
   );
@@ -43,70 +100,96 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   hero: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: '#ffffff',
     borderRadius: 22,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(224, 213, 255, 0.36)',
-    shadowColor: '#10012a',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
+    borderColor: '#fecdd3',
+    shadowColor: 'rgba(190, 24, 93, 0.18)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 22,
     elevation: 14,
+    position: 'relative',
   },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(168, 85, 247, 0.3)',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(233, 213, 255, 0.45)',
-    marginBottom: 12,
+  profileFab: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: '#f472b6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(244, 114, 182, 0.5)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  heroBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: '#f5f3ff',
-  },
-  title: {
-    fontSize: 30,
+  profileFabText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '800',
-    color: '#fdf4ff',
-    letterSpacing: 0.3,
-  },
-  subtitle: {
-    marginTop: 12,
-    fontSize: 16,
-    lineHeight: 24,
-    color: 'rgba(237, 233, 254, 0.85)',
-  },
-  quickTips: {
-    marginTop: 28,
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: 'rgba(40, 17, 89, 0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(157, 129, 238, 0.35)',
-  },
-  quickTipsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#f4edff',
-    marginBottom: 10,
     letterSpacing: 0.4,
   },
-  tipItem: {
-    color: '#e9d5ff',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 6,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#831843',
+  },
+  heroHint: {
+    fontSize: 13,
+    color: '#9f1239',
+    marginVertical: 8,
+  },
+  cityNote: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#be185d',
   },
   actions: {
     marginTop: 24,
     paddingBottom: 16,
+  },
+  emergencyButton: {
+    paddingVertical: 26,
+    marginTop: 4,
+  },
+  emergencyButtonText: {
+    fontSize: 20,
+    letterSpacing: 0.8,
+  },
+  alertsGrid: {
+    marginTop: 16,
+  },
+  emptyText: {
+    color: '#831843',
+    marginTop: 6,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  eventMagnitude: {
+    width: 48,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#f43f5e',
+  },
+  eventDetails: {
+    flex: 1,
+  },
+  eventLocation: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#831843',
+  },
+  eventMeta: {
+    fontSize: 12,
+    color: '#9f1239',
   },
 });
 
