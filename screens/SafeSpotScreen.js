@@ -17,17 +17,21 @@ const SafeSpotScreen = () => {
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.descriptionCard}>
-          <Text style={styles.descriptionTitle}>Güvenli Alan Hatırlatması</Text>
+          <Text style={styles.descriptionTitle}>
+            Güvenli Alan Hatırlatması
+          </Text>
           <Text style={styles.descriptionText}>
             Depremde cam, aynalar ve devrilebilecek mobilyalardan uzak dur. İç duvar köşeleri ve sağlam mobilya
-            yanları en güvenli bölgelerdir.
+            yanları en güvenli bölgelerdir. Dayanıklı eşyaların yanında hayat üçgeni oluştur, sarsıntı devam ederken asansör
+            ya da merdivenlere yönelme.
           </Text>
         </View>
 
         <View style={styles.photoCard}>
           <Text style={styles.photoTitle}>Alanını kontrol et</Text>
           <Text style={styles.photoText}>
-            Çevrenin fotoğrafını çekerek potansiyel riskleri tespit etmeyi planlıyoruz. Şimdilik mock olarak deneyebilirsin.
+            Çevrenin fotoğrafını çekerek potansiyel riskleri tespit etmeyi planlıyoruz. Şimdilik mock olarak
+            deneyebilirsin.
           </Text>
           <PrimaryButton title="Fotoğraf çek (Mock)" onPress={handleMockPhoto} />
           <Text style={styles.photoHint}>Robot destekli analiz yakında burada olacak.</Text>

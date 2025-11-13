@@ -126,7 +126,7 @@ const ContactsScreen = () => {
             ref={scrollRef}
           >
             <View style={styles.alertCard}>
-              <Text style={styles.alertTitle}>Acil Durum Uyarıcıları</Text>
+              <Text style={styles.alertTitle}>Nasıl çalışır?</Text>
               <Text style={styles.alertHint}>
                 Profilindeki eşik aşıldığında önce sana bildirim gelir. 2 dakika içinde yanıt vermezsen buradaki kişilere konumun
                 SMS ile gönderilir.
@@ -237,19 +237,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    marginBottom: 18,
+    marginBottom: 26,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#fed7e2',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#831843',
     letterSpacing: 0.4,
+    textAlign: 'center',
   },
   subtitle: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     color: '#9f1239',
+    textAlign: 'center',
   },
   formCard: {
     backgroundColor: '#ffffff',

@@ -1,0 +1,120 @@
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+} from 'react-native';
+import ScreenWrapper from '../components/ScreenWrapper';
+import ContactCard from '../components/ContactCard';
+import PrimaryButton from '../components/PrimaryButton';
+
+const formatTurkishPhone = (digits) => {
+  if (digits.length <= 3) return `+90 ${digits}`.trim();
+  if (digits.length <= 6) return `+90 ${digits.slice(0, 3)} ${digits.slice(3)}`.trim();
+  if (digits.length <= 8) return `+90 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`.trim();
+  return `+90 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`.trim();
+};
+
+const CLOSENESS_LEVELS = [
+  { label: 'Birincil destek', value: 'Birincil destek' },
+  { label: 'Hızlı haber', value: 'Hızlı haber' },
+  { label: 'Bilgilendir', value: 'Bilgilendir' },
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const ContactsScreen = () => {
+  const [contacts, setContacts] = useState([]);
+  const [name, setName] = useState('');
+  const [relation, setRelation] = useState('');
+  const [rawPhone, setRawPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [closeness, setCloseness] = useState('');
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const scrollRef = useRef(null);
+
+  const handleAddContact = () => {
+    const trimmedName = name.trim();
+    const trimmedRelation = relation.trim();
+    const trimmedEmail = email.trim();
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    if (!trimmedName || !trimmedRelation) {
+      setError('Lütfen ad ve ilişki alanlarını doldurun.');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      setError('Telefon numarası 10 haneli olmalı ve sadece rakam içermelidir.');
+      return;
+    }
+
+    if (['0', '1'].includes(cleanPhone[0])) {
+      setError('Telefon numarası 0 veya 1 ile başlayamaz.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(trimmedEmail.toLowerCase())) {
+      setError('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    if (!closeness) {
+      setError('Lütfen yakınlık derecesi seçin.');
+      return;
+    }
+
+    const formattedPhone = formatTurkishPhone(cleanPhone);
+
+    setContacts((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}`,
+        name: trimmedName,
+        relation: trimmedRelation,
+        phone: formattedPhone,
+        email: trimmedEmail,
+        closeness,
+      },
+    ]);
+
+    setName('');
+    setRelation('');
+    setRawPhone('');
+    setEmail('');
+    setCloseness('');
+    setError('');
+  };
+
+  const toggleForm = () => {
+    setShowForm((prev) => {
+      const nextState = !prev;
+      if (nextState) {
+        setTimeout(() => {
+          scrollRef.current?.scrollToEnd({ animated: true });
+        }, 150);
+      }
+      return nextState;
+    });
+    setError('');
+  };
+
+  return (
+    <ScreenWrapper>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+      >
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Acil Durum Kişileri</Text>
+            <Text style={styles.subtitle}>
+              Panik anında tek dokunuşla ulaşmak istediğin destek kişileri. Kartlara dokunup arama ya da mesaj planla.
+            </Text>
+          </View>

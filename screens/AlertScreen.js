@@ -1,12 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
+
+const EMERGENCY_NUMBERS = [
+  { label: 'AFAD 122', value: '122' },
+  { label: '112 Acil', value: '112' },
+  { label: 'Alo Deprem 184', value: '184' },
+];
 
 const AlertScreen = ({ route }) => {
   const { status = 'İyiyim' } = route.params || {};
-  const mockLocation = { latitude: 39.92, longitude: 32.85 };
-
-  // TODO: burada yakınlara otomatik bildirim gidecek
+  const handleDial = (number) => {
+    Linking.openURL(`tel:${number}`).catch(() => {});
+  };
 
   return (
     <ScreenWrapper>
@@ -20,21 +26,29 @@ const AlertScreen = ({ route }) => {
             Bu bilgi panik anında paylaşım için hazırlandı. Yakının, hangi desteği vermesi gerektiğini saniyeler içinde
             öğrenebilir.
           </Text>
+          <Text style={styles.statusNote}>
+            Kaydettiğin acil durum kişilerine bildirim gönderildi. Eğer durum kritikse aşağıdaki acil numaralardan birini
+            aramayı unutma.
+          </Text>
         </View>
 
-        <View style={styles.locationCard}>
-          <Text style={styles.locationLabel}>Paylaşılan Konum (Mock)</Text>
-          <Text style={styles.locationValue}>
-            {mockLocation.latitude.toFixed(2)}, {mockLocation.longitude.toFixed(2)}
-          </Text>
-          <Text style={styles.locationHint}>
-            Konum bilgisi yakında otomatik olarak güncellenecek ve paylaşılacak.
-          </Text>
+        <View style={styles.emergencyButtons}>
+          {EMERGENCY_NUMBERS.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={styles.emergencyButton}
+              onPress={() => handleDial(item.value)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.emergencyButtonText}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <Text style={styles.emergencyHint}>Numaraya dokunduğunda telefon uygulaması açılır.</Text>
         </View>
 
         <Text style={styles.note}>
-          Bu ekran aile bireylerine gönderilecek bildirimin taslağıdır. Gerçek paylaşım ve acil bildirim entegrasyonları
-          prototip sonrası eklenecektir.
+          Bu ekran aile bireylerine gönderilecek bildirimin taslağıdır. Konum bilgilerinin otomatik paylaşımı ve acil bildirim
+          entegrasyonları prototip sonrasında eklenecektir.
         </Text>
       </View>
     </ScreenWrapper>
@@ -57,7 +71,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 24,
     elevation: 18,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   label: {
     fontSize: 16,
@@ -86,31 +100,41 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#0f172a',
   },
-  locationCard: {
-    backgroundColor: '#ffe4e6',
-    borderRadius: 22,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    marginBottom: 18,
-  },
-  locationLabel: {
-    fontSize: 14,
-    letterSpacing: 0.6,
-    color: '#be123c',
-    textTransform: 'uppercase',
-  },
-  locationValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#9d174d',
-    marginTop: 12,
-  },
-  locationHint: {
-    marginTop: 10,
+  statusNote: {
+    marginTop: 8,
     fontSize: 13,
+    lineHeight: 20,
     color: '#be185d',
-    lineHeight: 19,
+  },
+  emergencyButtons: {
+    marginBottom: 12,
+  },
+  emergencyButton: {
+    backgroundColor: '#dc2626',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    marginHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(220, 38, 38, 0.3)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  emergencyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  emergencyHint: {
+    textAlign: 'center',
+    color: '#be185d',
+    marginTop: 4,
+    fontSize: 12,
   },
   note: {
     fontSize: 13,

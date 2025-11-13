@@ -1,20 +1,36 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 
 const panicSteps = [
-  'Derin nefes al, sağlam bir mobilyanın yanına çök/kapan.',
+  'Derin nefes al, sağlam bir mobilyanın yanına çök/kapan/tutun.',
   'Başını ve enseni kolunla koru, pencerelerden uzak kal.',
-  'Ulaşabiliyorsan Acil Durum Kişileri listene “Yardıma ihtiyacım var” bildirimi gönder.',
+  'Dayanıklı koltuk, masa veya beyaz eşya yanında hayat üçgeni oluşturmaya çalış.',
+  'Asansör veya merdivenleri kullanma; sarsıntı bitene kadar bulunduğun yerde kal.',
+  "Ulaşabiliyorsan Acil Durum Kişileri listene 'Yardıma ihtiyacım var' bildirimi gönder.",
   'Güvendeysen toplanma alanına çık ve burada tekrar haber ver.',
 ];
 
 const emergencyNumbers = [
-  { label: 'AFAD', value: '122' },
+  { label: 'AFAD 122', value: '122' },
   { label: '112 Acil', value: '112' },
-  { label: 'Alo Deprem', value: '184' },
+  { label: 'Alo Deprem 184', value: '184' },
 ];
+
+const HIGHLIGHT_KEYWORDS = [
+  'çök/kapan/tutun',
+  'çök/kapan',
+  'Başını ve enseni kolunla koru',
+  'pencerelerden uzak kal',
+  'hayat üçgeni',
+  'Asansör veya merdivenleri kullanma',
+  'bulunduğun yerde kal',
+  'Yardıma ihtiyacım var',
+  'toplanma alanına çık',
+];
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const EmergencyStatusScreen = ({ navigation }) => {
   const handleSelectStatus = (status) => {
@@ -25,41 +41,47 @@ const EmergencyStatusScreen = ({ navigation }) => {
     Linking.openURL(`tel:${number}`).catch(() => {});
   };
 
+  const highlightFragments = useMemo(() => {
+    const pattern = new RegExp(`(${HIGHLIGHT_KEYWORDS.map(escapeRegex).join('|')})`, 'gi');
+    return panicSteps.map((step) =>
+      step.split(pattern).filter(Boolean).map((chunk) => ({
+        text: chunk,
+        highlight: HIGHLIGHT_KEYWORDS.some((keyword) => keyword.toLowerCase() === chunk.toLowerCase()),
+      }))
+    );
+  }, []);
+
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>Panik anında ne yapmalı?</Text>
-          {panicSteps.map((step) => (
-            <Text key={step} style={styles.step}>
-              • {step}
-            </Text>
+          <Text style={styles.title}>Panik Anında Ne Yapmalı?</Text>
+          {panicSteps.map((step, index) => (
+            <View key={step} style={styles.stepRow}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.step}>
+                {highlightFragments[index].map((fragment, fragmentIndex) => (
+                  <Text
+                    key={`${fragment.text}-${fragmentIndex}`}
+                    style={fragment.highlight ? styles.stepHighlight : undefined}
+                  >
+                    {fragment.text}
+                  </Text>
+                ))}
+              </Text>
+            </View>
           ))}
-
-          <Text style={styles.emergencyTitle}>Acil numaralar</Text>
-          {emergencyNumbers.map((item) => (
-            <TouchableOpacity
-              key={item.value}
-              style={styles.emergencyRow}
-              onPress={() => handleDial(item.value)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.emergencyLabel}>{item.label}</Text>
-              <Text style={styles.emergencyValue}>{item.value}</Text>
-            </TouchableOpacity>
-          ))}
-
-          <Text style={styles.note}>
-            Numaranın üzerine dokunduğunda telefon uygulaması açılır ve numara otomatik olarak yazılır.
-          </Text>
         </View>
 
         <View style={styles.actions}>
           <PrimaryButton
-            title="Yardıma ihtiyacım var"
+            title={'Yardıma ihtiyacım\nvar'}
             onPress={() => handleSelectStatus('Yardıma ihtiyacım var')}
             colorScheme="danger"
             style={styles.helpButton}
+            textStyle={styles.helpButtonText}
           />
         </View>
       </View>
@@ -90,48 +112,51 @@ const styles = StyleSheet.create({
     color: '#831843',
     marginBottom: 12,
   },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  stepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  stepBadgeText: {
+    color: '#be123c',
+    fontWeight: '800',
+  },
   step: {
+    flex: 1,
     fontSize: 14,
     color: '#9d174d',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  emergencyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#be185d',
-    marginTop: 12,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  emergencyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#fee2e2',
-  },
-  emergencyLabel: {
-    color: '#831843',
+    lineHeight: 22,
     fontWeight: '700',
   },
-  emergencyValue: {
-    color: '#dc2626',
+  stepHighlight: {
+    color: '#be123c',
     fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  note: {
-    marginTop: 10,
-    fontSize: 12,
-    color: '#9f1239',
   },
   actions: {
-    marginTop: 20,
+    marginTop: 0,
     paddingBottom: 12,
   },
   helpButton: {
-    marginTop: 12,
+    marginTop: 8,
+    paddingVertical: 40,
+    borderRadius: 36,
+    marginHorizontal: 24,
+  },
+  helpButtonText: {
+    fontSize: 26,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
 });
 

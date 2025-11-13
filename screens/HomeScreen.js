@@ -17,7 +17,6 @@ const HomeScreen = ({ navigation }) => {
 
   const city = prefs.city || 'İstanbul';
   const alertThreshold = Number(prefs.threshold || 5);
-  const profileInitials = `${prefs.name?.[0] || ''}${prefs.surname?.[0] || ''}`.trim().toUpperCase() || 'P';
 
   const earthquakes = useMemo(() => getEarthquakesByCity(city), [city]);
   const informativeEvents = useMemo(
@@ -64,6 +63,11 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.actions}>
+          <PrimaryButton
+            title="Konumum"
+            onPress={() => navigation.navigate('MapExplorer')}
+            colorScheme="mint"
+          />
           <PrimaryButton
             title="Güvenli Alan Analizi"
             onPress={() => navigation.navigate('SafeSpot')}
@@ -152,14 +156,22 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 24,
     paddingBottom: 16,
+    paddingHorizontal: 10,
   },
   emergencyButton: {
-    paddingVertical: 26,
-    marginTop: 4,
+    paddingVertical: 28,
+    marginTop: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: 'rgba(239, 68, 68, 0.6)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 18,
   },
   emergencyButtonText: {
-    fontSize: 20,
-    letterSpacing: 0.8,
+    fontSize: 22,
+    letterSpacing: 1.2,
   },
   alertsGrid: {
     marginTop: 16,
@@ -184,7 +196,7 @@ const styles = StyleSheet.create({
   },
   eventLocation: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight:  '700',
     color: '#831843',
   },
   eventMeta: {

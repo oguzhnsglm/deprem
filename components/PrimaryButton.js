@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 10,
     elevation: 6,
-    shadowColor: '#831843',
+    shadowColor: '#1f0a4e',
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,
   },
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.6,
+    textAlign: 'center',
   },
 });
 
