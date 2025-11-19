@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
@@ -51,7 +51,8 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <ScreenWrapper>
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.container}>
         <View style={styles.hero}>
           <TouchableOpacity style={styles.testBadge} onPress={handleTestNotification} activeOpacity={0.8}>
             <Text style={styles.testBadgeText}>Test</Text>
@@ -118,11 +119,15 @@ const HomeScreen = ({ navigation }) => {
 
         <View style={styles.alertsGrid} />
       </View>
+      </ScrollView>
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'space-between',
