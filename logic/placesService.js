@@ -73,9 +73,17 @@ export const getEmergencyPlaces = async (coords) => {
       fetchPlacesFromGoogle(coords, { type: 'hospital' }),
     ]);
 
+    const normalizedShelters = shelters
+      .map((place) => ({ ...place, type: 'shelter' }))
+      .filter((place) => typeof place.latitude === 'number' && typeof place.longitude === 'number');
+
+    const normalizedHospitals = hospitals
+      .map((place) => ({ ...place, type: 'hospital' }))
+      .filter((place) => typeof place.latitude === 'number' && typeof place.longitude === 'number');
+
     return {
-      shelters: shelters.map((place) => ({ ...place, type: 'shelter' })),
-      hospitals: hospitals.map((place) => ({ ...place, type: 'hospital' })),
+      shelters: normalizedShelters.length ? normalizedShelters : buildFallbackData(FALLBACK_SHELTERS, coords),
+      hospitals: normalizedHospitals.length ? normalizedHospitals : buildFallbackData(FALLBACK_HOSPITALS, coords),
     };
   } catch (error) {
     console.warn('[placesService] Using fallback data:', error.message);

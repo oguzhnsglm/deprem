@@ -6,12 +6,13 @@ import { getRiskForCoords } from '../logic/earthquakeRisk';
 
 let MapView = null;
 let Marker = null;
+const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
 
 try {
-  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  if (isNativePlatform) {
     const Maps = require('react-native-maps');
     MapView = Maps.default;
-    Marker = Maps.Marker;
+    Marker = Maps.Marker || Maps.default?.Marker;
   }
 } catch (error) {
     console.warn('[MapExplorer] react-native-maps yüklenemedi:', error.message);
@@ -39,6 +40,7 @@ const MapExplorerScreen = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [errorMessage, setErrorMessage] = useState(null);
   const debouncedFetchRef = useRef(null);
+  const mapRef = useRef(null);
 
   const risk = useMemo(() => getRiskForCoords(region), [region]);
 
@@ -53,12 +55,13 @@ const MapExplorerScreen = () => {
   }, [activeFilter, places]);
 
   const fetchPlaces = useCallback(async (coords) => {
-    if (!coords) {
+    if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
       return;
     }
+    const targetCoords = { latitude: coords.latitude, longitude: coords.longitude };
     setLoadingPlaces(true);
     try {
-      const data = await getEmergencyPlaces(coords);
+      const data = await getEmergencyPlaces(targetCoords);
       setPlaces(data);
       setErrorMessage(null);
     } catch (error) {
@@ -70,14 +73,14 @@ const MapExplorerScreen = () => {
 
   const scheduleFetch = useCallback(
     (coords) => {
-      if (!coords) {
+      if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
         return;
       }
       if (debouncedFetchRef.current) {
         clearTimeout(debouncedFetchRef.current);
       }
       debouncedFetchRef.current = setTimeout(() => {
-        fetchPlaces(coords);
+        fetchPlaces({ latitude: coords.latitude, longitude: coords.longitude });
       }, 500);
     },
     [fetchPlaces]
@@ -93,6 +96,9 @@ const MapExplorerScreen = () => {
   );
 
   const syncLocation = useCallback(async () => {
+    if (!isNativePlatform) {
+      return;
+    }
     setLocating(true);
     setErrorMessage(null);
     try {
@@ -116,25 +122,31 @@ const MapExplorerScreen = () => {
 
       setRegion(nextRegion);
       setUserLocation(coords);
-      scheduleFetch(coords);
+      mapRef.current?.animateToRegion(nextRegion, 600);
+      await fetchPlaces(coords);
     } catch (error) {
       setErrorMessage('Konum alınırken sorun oluştu.');
     } finally {
       setLocating(false);
     }
-  }, [scheduleFetch]);
+  }, [fetchPlaces]);
 
   useEffect(() => {
     if (MapView) {
-      syncLocation();
-      scheduleFetch(DEFAULT_REGION);
+      scheduleFetch({ latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude });
     }
-  }, [scheduleFetch, syncLocation]);
+  }, [scheduleFetch]);
+
+  useEffect(() => {
+    if (isNativePlatform) {
+      syncLocation();
+    }
+  }, [syncLocation]);
 
   const handleRegionChangeComplete = useCallback(
     (nextRegion) => {
       setRegion(nextRegion);
-      scheduleFetch(nextRegion);
+      scheduleFetch({ latitude: nextRegion.latitude, longitude: nextRegion.longitude });
     },
     [scheduleFetch]
   );
@@ -145,6 +157,7 @@ const MapExplorerScreen = () => {
         {MapView ? (
           <>
             <MapView
+              ref={mapRef}
               style={StyleSheet.absoluteFill}
               region={region}
               onRegionChangeComplete={handleRegionChangeComplete}
@@ -196,6 +209,13 @@ const MapExplorerScreen = () => {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {!loadingPlaces && markers.length === 0 && (
+              <View style={styles.emptyOverlay}>
+                <Text style={styles.emptyOverlayTitle}>Yakınlarda tesis bulunamadı</Text>
+                <Text style={styles.emptyOverlayText}>Haritayı hareket ettirerek farklı bölgeleri tarayabilirsin.</Text>
+              </View>
+            )}
 
             {(loadingPlaces || locating) && (
               <View style={styles.loadingOverlay}>
@@ -343,6 +363,29 @@ const styles = StyleSheet.create({
   },
   legendTextActive: {
     color: '#ecfeff',
+  },
+  emptyOverlay: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(14, 116, 144, 0.35)',
+  },
+  emptyOverlayTitle: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#0f766e',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyOverlayText: {
+    fontSize: 13,
+    color: '#0f766e',
+    textAlign: 'center',
   },
   loadingOverlay: {
     position: 'absolute',
