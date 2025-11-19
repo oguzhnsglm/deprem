@@ -1,10 +1,11 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import { getEarthquakesByCity } from '../logic/mockEarthquakes';
 import { getProfilePreferences } from '../logic/profileStore';
+import { ensureNotificationSetup, triggerManualThresholdTest } from '../logic/notificationService';
 
 const HomeScreen = ({ navigation }) => {
   const [prefs, setPrefs] = useState(getProfilePreferences());
@@ -23,15 +24,38 @@ const HomeScreen = ({ navigation }) => {
     () => earthquakes.filter((event) => event.magnitude >= 2),
     [earthquakes]
   );
-  const alertEvents = useMemo(
-    () => earthquakes.filter((event) => event.magnitude >= alertThreshold),
-    [earthquakes, alertThreshold]
-  );
+  useEffect(() => {
+    ensureNotificationSetup();
+  }, []);
+
+  const handleTestNotification = async () => {
+    const result = await triggerManualThresholdTest({
+      city,
+      threshold: alertThreshold,
+      events: earthquakes,
+    });
+
+    if (result.sent) {
+      Alert.alert('Test bildirimi gönderildi', 'Birkaç saniye içinde cihazında görünür.');
+      return;
+    }
+
+    if (result.reason === 'permission') {
+      Alert.alert('İzin gerekli', 'Bildirim izni verilmediği için uyarı gönderilemedi.');
+    } else if (result.reason === 'missing-data') {
+      Alert.alert('Veri bulunamadı', `${city} için örnek deprem kaydı yok.`);
+    } else {
+      Alert.alert('Eşik aşılmadı', `${alertThreshold.toFixed(1)}+ sarsıntı olmadığı için test yapılamadı.`);
+    }
+  };
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.hero}>
+          <TouchableOpacity style={styles.testBadge} onPress={handleTestNotification} activeOpacity={0.8}>
+            <Text style={styles.testBadgeText}>Test</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileFab}
             onPress={() => navigation.navigate('Profile')}
@@ -135,6 +159,28 @@ const styles = StyleSheet.create({
   profileFabText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  testBadge: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#fecdd3',
+    borderWidth: 1,
+    borderColor: '#fda4af',
+    elevation: 4,
+    shadowColor: 'rgba(244, 114, 182, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  },
+  testBadgeText: {
+    color: '#831843',
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.4,
   },

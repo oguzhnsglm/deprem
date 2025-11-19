@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
@@ -7,12 +7,12 @@ import { getProfilePreferences, setProfilePreferences } from '../logic/profileSt
 
 const THRESHOLD_OPTIONS = [5, 6, 7];
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
   const cityOptions = getKnownCities();
   const storedPrefs = getProfilePreferences();
   const [profile, setProfile] = useState({
-    name: '',
-    surname: '',
+    name: storedPrefs.name || '',
+    surname: storedPrefs.surname || '',
     age: '',
     address: '',
     city: storedPrefs.city || cityOptions[0] || 'İstanbul',
@@ -32,22 +32,28 @@ const ProfileScreen = ({ navigation }) => {
       setError('Ad ve soyad alanları zorunludur.');
       return;
     }
-    if (!profile.age.trim() || Number.isNaN(Number(profile.age)) || Number(profile.age) < 10) {
+
+    const numericAge = Number(profile.age);
+    if (!profile.age.trim() || Number.isNaN(numericAge) || numericAge < 10) {
       setError('Lütfen 10 ve üzeri geçerli bir yaş gir.');
       return;
     }
+
     if (!profile.address.trim()) {
       setError('Adres bilgisi boş bırakılamaz.');
       return;
     }
+
     if (!profile.city.trim()) {
       setError('Bir şehir seçmelisin.');
       return;
     }
+
     if (!profile.threshold) {
       setError('Deprem şiddeti eşiği seçmelisin.');
       return;
     }
+
     setError('');
     setSaved(true);
     setProfilePreferences({
@@ -75,6 +81,7 @@ const ProfileScreen = ({ navigation }) => {
             </Text>
           </View>
         </View>
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
           <View style={styles.fieldRow}>
@@ -109,24 +116,22 @@ const ProfileScreen = ({ navigation }) => {
             value={profile.address}
             onChangeText={(text) => handleInputChange('address', text)}
           />
+
           <Text style={styles.label}>Şehrim</Text>
-          <TouchableOpacity
-            style={styles.selector}
-            onPress={() => setCityModalVisible(true)}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
             <Text style={styles.selectorValue}>{profile.city}</Text>
             <Text style={styles.selectorHint}>Değiştir</Text>
           </TouchableOpacity>
 
           <Text style={styles.label}>Deprem Şiddeti Eşiğim</Text>
           <Text style={styles.helper}>
-            Eşik değeri 5.0’dan başlar. Belirlediğin değer ve üzerindeki sarsıntılarda önce sana, cevap gelmezse
-            Yakınlarım listene otomatik konum bildirimi gider.
+            Eşik değeri 5.0'dan başlar. Belirlediğin değer ve üzerindeki sarsıntılarda önce sana, yanıt gelmezse
+            yakınlarına otomatik bildirim gider.
           </Text>
           <View style={styles.chipsRow}>
             {THRESHOLD_OPTIONS.map((value) => {
               const active = Number(profile.threshold) === value;
+              const label = value === 7 ? '7.0+' : `${value}.0`;
               return (
                 <TouchableOpacity
                   key={value}
@@ -134,16 +139,13 @@ const ProfileScreen = ({ navigation }) => {
                   onPress={() => handleInputChange('threshold', value)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.thresholdValue, active && styles.dangerChipText]}>{value}.0</Text>
-                  <Text style={[styles.thresholdMeta, active && styles.dangerChipText]}>
-                    {value >= 6 ? 'Şiddetli' : 'Yüksek'}
-                  </Text>
+                  <Text style={[styles.thresholdValue, active && styles.dangerChipText]}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
           <Text style={styles.thresholdWarning}>
-            5.0 üzeri eşikler AFAD kritik duyuruları ile uyumludur. Daha düşük değer seçimi şu an desteklenmiyor.
+            5.0 ve üzeri eşikler AFAD duyurularıyla uyumludur. Şimdilik 7.0+ maksimum eşik olarak destekleniyor.
           </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -157,6 +159,7 @@ const ProfileScreen = ({ navigation }) => {
           bildirimlerini takip et.
         </Text>
       </ScrollView>
+
       <Modal visible={cityModalVisible} animationType="slide" transparent onRequestClose={() => setCityModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -274,7 +277,7 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     marginBottom: 14,
   },
   selector: {
@@ -299,24 +302,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   thresholdChip: {
-    width: 100,
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#fecdd3',
     backgroundColor: '#fff7f9',
     alignItems: 'center',
-    marginRight: 12,
-    marginBottom: 12,
+    marginHorizontal: 4,
   },
   thresholdValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: '#be185d',
-  },
-  thresholdMeta: {
-    fontSize: 12,
-    color: '#9f1239',
   },
   dangerChipActive: {
     backgroundColor: 'rgba(248, 113, 113, 0.2)',
