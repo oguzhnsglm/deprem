@@ -1,5 +1,7 @@
 # Expo / React Native
 node_modules/
+.env
+.env.*
 .expo/
 dist/
 web-build/
