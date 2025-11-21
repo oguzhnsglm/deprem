@@ -7,7 +7,19 @@
     "jsEngine": "hermes",
     "assetBundlePatterns": ["**/*"],
     "android": {
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "Guvenli alan analizi icin kameraya ihtiyac var.",
+        "NSPhotoLibraryAddUsageDescription": "Gonderilen fotograflari cihaza kaydedebilmek icin izin gerekiyor.",
+        "NSPhotoLibraryUsageDescription": "Guvenli alan analizi icin fotograf yukleyebilmemiz gerekiyor."
+      }
     }
   }
 }
