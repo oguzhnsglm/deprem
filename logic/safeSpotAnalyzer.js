@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
-const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini-high';
+const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini';
 const OPENAI_DEFAULT_API_URL = 'https://api.openai.com/v1/chat/completions';
-const GEMINI_DEFAULT_MODEL = 'gemini-1.5-pro';
+const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash-exp';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 const getEnvValue = (key) => {
@@ -74,7 +74,16 @@ const readImageAsBase64 = async (uri) => {
   if (!uri) {
     throw new Error('Fotoğraf bulunamadı');
   }
-  return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  try {
+    // expo-file-system için encoding string olarak belirtilmeli
+    const base64String = await FileSystem.readAsStringAsync(uri, { 
+      encoding: 'base64'
+    });
+    return base64String;
+  } catch (error) {
+    console.error('[readImageAsBase64] Hata:', error);
+    throw new Error(`Fotoğraf okunamadı: ${error.message}`);
+  }
 };
 
 const normalizeBounds = (bounds = {}) => {
@@ -233,28 +242,75 @@ const fallbackAnalysis = (reason, { base64Image } = {}) => {
 };
 
 const buildPrompt = () => `
-You are an earthquake preparedness assistant. Analyse the photo and identify SAFE zones where the "drop, cover, hold on"
-technique can be realistically performed. Also find dangerous spots. Respond ONLY with JSON using:
+Deprem güvenliği uzmanı olarak, fotoğraftaki odayı analiz et ve "ÇÖK-KAPAN-TUTUN" tekniğini uygulayabileceğin GÜVENLİ alanları ve TEHLİKELİ bölgeleri belirle.
+
+## GÜVENLİ ALAN KRİTERLERİ:
+1. **Sağlam Masa/Mobilya Yanı**: Ağır, sabit masalar veya güçlü mobilyaların yanı. Kişi dizleri üzerinde çöküp başını koruyabilmeli.
+2. **Taşıyıcı Duvar Köşeleri**: İç duvar köşeleri, özellikle kapı kasaları. Yapısal destek sağlar.
+3. **Alçak, Sağlam Mobilya**: Koltuk, kanepe yanı gibi düşük ve sabit nesneler.
+4. **Sabitlenmiş Kitaplık/Dolap Yanı**: Duvara monte edilmiş, devrilme riski olmayan mobilyalar.
+
+## TEHLİKELİ BÖLGELER:
+- **Pencereler ve Camlar**: Kırılma riski yüksek
+- **Aynalar ve Cam Yüzeyler**: Parçalanabilir
+- **Sabitlenmemiş Dolaplar**: Devrilme riski
+- **Avize/Sarkıt Altı**: Düşme riski
+- **Ağır Objeler**: Düşebilecek ağır tablolar, raflar
+
+## ÇÖK-KAPAN-TUTUN TEKNİĞİ:
+- Dizler üzerine çök
+- Başını ve enseni kollarınla koru
+- Sabit bir yüzeye/mobilyaya tutun
+- Sarsıntı bitene kadar bu pozisyonda kal
+
+## GÖREV:
+Fotoğraftaki odayı detaylıca incele ve SADECE JSON formatında yanıt ver:
+
 {
-  "summary": "one paragraph in Turkish describing the room and safest options",
+  "summary": "Odanın Türkçe detaylı açıklaması: mobilyalar, pencereler, alan düzeni ve en güvenli noktalar",
   "safeZones": [
     {
-      "id": "stable-table",
-      "label": "Masa Yanı",
-      "confidence": 0.88,
-      "guidance": "Brief Turkish guidance",
-      "bounds": { "x": 0.21, "y": 0.35, "width": 0.32, "height": 0.28 }
+      "id": "unique-id",
+      "label": "Güvenli Alan Adı (örn: Çalışma Masası Yanı, Kanepe Köşesi, Kapı Kasası)",
+      "confidence": 0.75,
+      "guidance": "Bu alanda nasıl pozisyon alınacağına dair detaylı Türkçe talimat",
+      "bounds": { 
+        "x": 0.1,
+        "y": 0.2, 
+        "width": 0.3,
+        "height": 0.25
+      }
     }
   ],
   "risks": [
-    { "id": "window-area", "label": "Cam", "detail": "Short Turkish warning" }
+    { 
+      "id": "risk-id",
+      "label": "Tehlike Adı (örn: Pencere Bölgesi, Avize Altı)",
+      "detail": "Bu bölgenin neden tehlikeli olduğuna dair Türkçe açıklama"
+    }
   ]
 }
-Bounds MUST be between 0 and 1 and describe relative box coordinates.
+
+ÖNEMLİ - BOUNDS KOORDİNATLARI:
+- **x**: Güvenli alanın SOL kenarının konumu (0 = en sol, 1 = en sağ)
+- **y**: Güvenli alanın ÜST kenarının konumu (0 = en üst, 1 = en alt)
+- **width**: Alanın GENİŞLİĞİ (0.2-0.4 arası ideal)
+- **height**: Alanın YÜKSEKLİĞİ (0.2-0.4 arası ideal)
+
+ÖRNEK: Sağ altta bir kanepe için bounds: {"x": 0.6, "y": 0.6, "width": 0.3, "height": 0.35}
+ÖRNEK: Sol üstte bir masa için bounds: {"x": 0.1, "y": 0.1, "width": 0.25, "height": 0.3}
+ÖRNEK: Ortada bir mobilya için bounds: {"x": 0.4, "y": 0.4, "width": 0.3, "height": 0.3}
+
+DİKKAT:
+- Fotoğraftaki GERÇEK konumları doğru belirle
+- Koordinatlar mobilyanın TAM ÜZERİNDE olmalı
+- Her güvenli alan FARKLI bir yerde olmalı
+- En az 2-4 güvenli alan belirle
+- Türkçe yanıt ver
 `;
 
 const buildOpenAiRequestBody = (base64Image) => ({
-  model: MODEL_NAME,
+  model: OPENAI_DEFAULT_MODEL,
   messages: [
     {
       role: 'system',
@@ -295,7 +351,6 @@ const buildGeminiRequestBody = (base64Image) => ({
   ],
   generationConfig: {
     temperature: 0.2,
-    responseMimeType: 'application/json',
   },
 });
 
@@ -373,6 +428,74 @@ const parseGeminiResponse = (data) => {
   return parseStructuredAnalysis(content);
 };
 
+const callOpenAI = async (base64Image, apiKey) => {
+  const body = buildOpenAiRequestBody(base64Image);
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  const response = await fetch(OPENAI_DEFAULT_API_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = 'Bilinmeyen hata';
+    
+    try {
+      const errorData = JSON.parse(errorText);
+      if (response.status === 401) {
+        errorMessage = 'API anahtarı geçersiz. Lütfen OpenAI API anahtarınızı kontrol edin.';
+      } else if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      }
+    } catch {
+      errorMessage = errorText;
+    }
+    
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  return parseOpenAiResponse(data);
+};
+
+const callGemini = async (base64Image, apiKey) => {
+  const body = buildGeminiRequestBody(base64Image);
+  const headers = { 'Content-Type': 'application/json' };
+  const requestUrl = `${GEMINI_API_BASE}/models/${GEMINI_DEFAULT_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const response = await fetch(requestUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = 'Bilinmeyen hata';
+    
+    try {
+      const errorData = JSON.parse(errorText);
+      if (response.status === 400 && errorData.error?.message?.includes('API key')) {
+        errorMessage = 'API anahtarı geçersiz. Lütfen Google AI Studio\'dan yeni bir Gemini API anahtarı alın.';
+      } else if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      }
+    } catch {
+      errorMessage = errorText;
+    }
+    
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  return parseGeminiResponse(data);
+};
+
 export const analyzeSafeSpotPhoto = async (photoUri) => {
   let base64Image;
   try {
@@ -404,7 +527,7 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
 
     if (!response.ok) {
       const message = await response.text();
-      throw new Error(`Yapay zeka iste?i ba?ar?s?z: ${response.status} ${message}`);
+      throw new Error(`Yapay zeka isteği başarısız: ${response.status} ${message}`);
     }
 
     const data = await response.json();
@@ -426,6 +549,64 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
     });
     return fallbackAnalysis('error', { base64Image });
   }
+};
+
+export const analyzeSafeSpotPhotoWithBothProviders = async (photoUri) => {
+  let base64Image;
+  try {
+    base64Image = await readImageAsBase64(photoUri);
+  } catch (error) {
+    throw new Error('Fotoğraf okunamadı: ' + error.message);
+  }
+
+  const results = {
+    openai: null,
+    gemini: null,
+  };
+
+  // OpenAI çağrısı
+  if (OPENAI_KEY) {
+    try {
+      results.openai = await callOpenAI(base64Image, OPENAI_KEY);
+      results.openai.provider = 'OpenAI GPT-4';
+    } catch (error) {
+      console.warn('[OpenAI] Analiz başarısız:', error.message);
+      results.openai = {
+        ...fallbackAnalysis('error', { base64Image }),
+        provider: 'OpenAI GPT-4',
+        error: error.message,
+      };
+    }
+  } else {
+    results.openai = {
+      ...fallbackAnalysis('missing-key', { base64Image }),
+      provider: 'OpenAI GPT-4',
+      error: 'API anahtarı bulunamadı',
+    };
+  }
+
+  // Gemini çağrısı
+  if (GEMINI_KEY) {
+    try {
+      results.gemini = await callGemini(base64Image, GEMINI_KEY);
+      results.gemini.provider = 'Google Gemini';
+    } catch (error) {
+      console.warn('[Gemini] Analiz başarısız:', error.message);
+      results.gemini = {
+        ...fallbackAnalysis('error', { base64Image }),
+        provider: 'Google Gemini',
+        error: error.message,
+      };
+    }
+  } else {
+    results.gemini = {
+      ...fallbackAnalysis('missing-key', { base64Image }),
+      provider: 'Google Gemini',
+      error: 'API anahtarı bulunamadı',
+    };
+  }
+
+  return results;
 };
 
 export default analyzeSafeSpotPhoto;

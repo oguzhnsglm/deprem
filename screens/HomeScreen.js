@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
@@ -88,11 +88,13 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton
-            title="Konumum"
-            onPress={() => navigation.navigate('MapExplorer')}
-            colorScheme="mint"
-          />
+          {Platform.OS !== 'web' && (
+            <PrimaryButton
+              title="Konumum"
+              onPress={() => navigation.navigate('MapExplorer')}
+              colorScheme="location"
+            />
+          )}
           <PrimaryButton
             title="Güvenli Alan Analizi"
             onPress={() => navigation.navigate('SafeSpot')}

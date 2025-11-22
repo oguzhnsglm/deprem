@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
 import SafeSpotScreen from '../screens/SafeSpotScreen';
@@ -8,7 +8,12 @@ import AlertScreen from '../screens/AlertScreen';
 import ContactsScreen from '../screens/ContactsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EarthquakeFeedScreen from '../screens/EarthquakeFeedScreen';
-import MapExplorerScreen from '../screens/MapExplorerScreen';
+
+// Conditionally import MapExplorerScreen only on native platforms
+let MapExplorerScreen = null;
+if (Platform.OS !== 'web') {
+  MapExplorerScreen = require('../screens/MapExplorerScreen').default;
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -62,7 +67,9 @@ const StackNavigator = () => {
       <Stack.Screen name="Contacts" component={ContactsScreen} options={{ title: 'Acil Durum Kişileri' }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilim' }} />
       <Stack.Screen name="EarthquakeFeed" component={EarthquakeFeedScreen} options={{ title: 'Deprem Akışı' }} />
-      <Stack.Screen name="MapExplorer" component={MapExplorerScreen} options={{ title: 'Harita ve Risk' }} />
+      {Platform.OS !== 'web' && MapExplorerScreen && (
+        <Stack.Screen name="MapExplorer" component={MapExplorerScreen} options={{ title: 'Harita ve Risk' }} />
+      )}
     </Stack.Navigator>
   );
 };
