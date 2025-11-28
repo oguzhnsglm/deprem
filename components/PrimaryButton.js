@@ -22,6 +22,12 @@ const COLOR_SCHEMES = {
     shadow: '#7f1d1d',
     ripple: 'rgba(252, 165, 165, 0.35)',
   },
+  location: {
+    start: '#4ade80',
+    end: '#16a34a',
+    shadow: '#14532d',
+    ripple: 'rgba(255, 255, 255, 0.2)',
+  },
 };
 
 const PrimaryButton = ({ title, onPress, style, textStyle, colorScheme = 'primary', ...rest }) => {

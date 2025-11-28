@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
-import { getEmergencyPlaces } from '../logic/placesService';
 import { getRiskForCoords } from '../logic/earthquakeRisk';
 
 let MapView = null;
@@ -44,19 +43,10 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.2,
 };
 
-const FILTERS = [
-  { id: 'all', label: 'Hepsi' },
-  { id: 'shelter', label: 'Toplanma Alanı' },
-  { id: 'hospital', label: 'Hastaneler' },
-];
-
 const MapExplorerScreen = () => {
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [userLocation, setUserLocation] = useState(null);
-  const [places, setPlaces] = useState({ shelters: [], hospitals: [] });
-  const [loadingPlaces, setLoadingPlaces] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all');
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedSoilPoint, setSelectedSoilPoint] = useState(null);
   const [vs30Info, setVs30Info] = useState(null);
@@ -67,61 +57,10 @@ const MapExplorerScreen = () => {
     ? vs30ApiBaseRaw.replace(/\/$/, '')
     : null;
   const vs30Available = Boolean(vs30ApiBase && isNativePlatform);
-  const debouncedFetchRef = useRef(null);
+  const showVs30Overlay = Boolean(MapView && isNativePlatform);
   const mapRef = useRef(null);
 
   const risk = useMemo(() => getRiskForCoords(region), [region]);
-
-  const markers = useMemo(() => {
-    if (activeFilter === 'shelter') {
-      return places.shelters;
-    }
-    if (activeFilter === 'hospital') {
-      return places.hospitals;
-    }
-    return [...places.shelters, ...places.hospitals];
-  }, [activeFilter, places]);
-
-  const fetchPlaces = useCallback(async (coords) => {
-    if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
-      return;
-    }
-    const targetCoords = { latitude: coords.latitude, longitude: coords.longitude };
-    setLoadingPlaces(true);
-    try {
-      const data = await getEmergencyPlaces(targetCoords);
-      setPlaces(data);
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage('Çevredeki tesisler alınamadı.');
-    } finally {
-      setLoadingPlaces(false);
-    }
-  }, []);
-
-  const scheduleFetch = useCallback(
-    (coords) => {
-      if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
-        return;
-      }
-      if (debouncedFetchRef.current) {
-        clearTimeout(debouncedFetchRef.current);
-      }
-      debouncedFetchRef.current = setTimeout(() => {
-        fetchPlaces({ latitude: coords.latitude, longitude: coords.longitude });
-      }, 500);
-    },
-    [fetchPlaces]
-  );
-
-  useEffect(
-    () => () => {
-      if (debouncedFetchRef.current) {
-        clearTimeout(debouncedFetchRef.current);
-      }
-    },
-    []
-  );
 
   const syncLocation = useCallback(async () => {
     if (!isNativePlatform) {
@@ -151,19 +90,12 @@ const MapExplorerScreen = () => {
       setRegion(nextRegion);
       setUserLocation(coords);
       mapRef.current?.animateToRegion(nextRegion, 600);
-      await fetchPlaces(coords);
     } catch (error) {
       setErrorMessage('Konum alınırken sorun oluştu.');
     } finally {
       setLocating(false);
     }
-  }, [fetchPlaces]);
-
-  useEffect(() => {
-    if (MapView) {
-      scheduleFetch({ latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude });
-    }
-  }, [scheduleFetch]);
+  }, []);
 
   useEffect(() => {
     if (isNativePlatform) {
@@ -174,9 +106,8 @@ const MapExplorerScreen = () => {
   const handleRegionChangeComplete = useCallback(
     (nextRegion) => {
       setRegion(nextRegion);
-      scheduleFetch({ latitude: nextRegion.latitude, longitude: nextRegion.longitude });
     },
-    [scheduleFetch]
+    []
   );
 
   const handleMapLongPress = useCallback(async (event) => {
@@ -225,15 +156,6 @@ const MapExplorerScreen = () => {
               showsPointsOfInterest={false}
               onLongPress={vs30Available ? handleMapLongPress : undefined}
             >
-              {markers.map((place) => (
-                <Marker
-                  key={place.id}
-                  coordinate={{ latitude: place.latitude, longitude: place.longitude }}
-                  pinColor={place.type === 'hospital' ? '#ef4444' : '#10b981'}
-                  title={place.name}
-                  description={place.vicinity}
-                />
-              ))}
               {selectedSoilPoint && (
                 <Marker
                   coordinate={selectedSoilPoint}
@@ -254,11 +176,13 @@ const MapExplorerScreen = () => {
               <Text style={styles.riskOverlayDescription}>{risk.description}</Text>
             </View>
 
-            {isNativePlatform && (
+            {showVs30Overlay && (
               <View style={styles.vs30Card}>
                 <Text style={styles.vs30Title}>Vs30 Zemin Bilgisi</Text>
                 {!vs30Available ? (
-                  <Text style={styles.vs30Hint}>.env dosyasında EXPO_PUBLIC_VS30_API_BASE tanımlanmadan kullanılamaz.</Text>
+                  <Text style={styles.vs30Hint}>
+                    .env dosyasında EXPO_PUBLIC_VS30_API_BASE tanımlanmadan kullanılamaz.
+                  </Text>
                 ) : vs30Loading ? (
                   <View style={styles.vs30Row}>
                     <ActivityIndicator color="#f472b6" size="small" />
@@ -295,46 +219,20 @@ const MapExplorerScreen = () => {
               </View>
             )}
 
-            <View style={styles.legendOverlay}>
-              {FILTERS.map((filter) => (
-                <TouchableOpacity
-                  key={filter.id}
-                  onPress={() => setActiveFilter(filter.id)}
-                  style={[styles.legendChip, activeFilter === filter.id && styles.legendChipActive]}
-                >
-                  <View
-                    style={[
-                      styles.legendDot,
-                      filter.id === 'hospital'
-                        ? styles.legendDotHospital
-                        : filter.id === 'shelter'
-                        ? styles.legendDotShelter
-                        : styles.legendDotAll,
-                    ]}
-                  />
-                  <Text style={[styles.legendText, activeFilter === filter.id && styles.legendTextActive]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {!loadingPlaces && markers.length === 0 && (
-              <View style={styles.emptyOverlay}>
-                <Text style={styles.emptyOverlayTitle}>Yakınlarda tesis bulunamadı</Text>
-                <Text style={styles.emptyOverlayText}>Haritayı hareket ettirerek farklı bölgeleri tarayabilirsin.</Text>
-              </View>
-            )}
-
-            {(loadingPlaces || locating) && (
+            {locating && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="small" color="#f472b6" />
-                <Text style={styles.loadingText}>{locating ? 'Konum alınıyor…' : 'Yakın tesisler yenileniyor…'}</Text>
+                <Text style={styles.loadingText}>Konum alınıyor…</Text>
               </View>
             )}
 
             {errorMessage && (
-              <View style={styles.errorOverlay}>
+              <View
+                style={[
+                  styles.errorOverlay,
+                  showVs30Overlay && styles.errorOverlayRaised,
+                ]}
+              >
                 <Text style={styles.errorOverlayText}>{errorMessage}</Text>
               </View>
             )}
@@ -348,8 +246,8 @@ const MapExplorerScreen = () => {
           </View>
         )}
       </View>
-    </SafeAreaView>
-  );
+  </SafeAreaView>
+);
 };
 
 const styles = StyleSheet.create({
@@ -427,75 +325,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#92400e',
   },
-  legendOverlay: {
-    position: 'absolute',
-    bottom: 30,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  legendChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 4,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 118, 110, 0.4)',
-    backgroundColor: 'rgba(15, 118, 110, 0.15)',
-  },
-  legendChipActive: {
-    backgroundColor: '#0f766e',
-    borderColor: '#0f766e',
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  legendDotShelter: {
-    backgroundColor: '#10b981',
-  },
-  legendDotHospital: {
-    backgroundColor: '#ef4444',
-  },
-  legendDotAll: {
-    backgroundColor: '#fde047',
-  },
-  legendText: {
-    color: '#0f766e',
-    fontWeight: '700',
-  },
-  legendTextActive: {
-    color: '#ecfeff',
-  },
-  emptyOverlay: {
-    position: 'absolute',
-    bottom: 120,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(14, 116, 144, 0.35)',
-  },
-  emptyOverlayTitle: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#0f766e',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  emptyOverlayText: {
-    fontSize: 13,
-    color: '#0f766e',
-    textAlign: 'center',
-  },
   loadingOverlay: {
     position: 'absolute',
     top: 24,
@@ -521,6 +350,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
   },
+  errorOverlayRaised: {
+    bottom: 240,
+  },
   errorOverlayText: {
     color: '#fff',
     fontWeight: '700',
@@ -528,10 +360,10 @@ const styles = StyleSheet.create({
   },
   vs30Card: {
     position: 'absolute',
-    top: 150,
+    bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(24, 24, 27, 0.88)',
+    backgroundColor: 'rgba(24, 24, 27, 0.9)',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,

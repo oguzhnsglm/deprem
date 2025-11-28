@@ -92,7 +92,7 @@ const HomeScreen = ({ navigation }) => {
             <PrimaryButton
               title="Konumum"
               onPress={() => navigation.navigate('MapExplorer')}
-              colorScheme="location"
+              colorScheme="mint"
             />
           )}
           <PrimaryButton
