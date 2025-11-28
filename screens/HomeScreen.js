@@ -1,14 +1,28 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  Platform,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
-import { getEarthquakesByCity } from '../logic/mockEarthquakes';
 import { getProfilePreferences } from '../logic/profileStore';
 import { ensureNotificationSetup, triggerManualThresholdTest } from '../logic/notificationService';
+import { fetchCityEarthquakes } from '../logic/earthquakeSources';
 
 const HomeScreen = ({ navigation }) => {
   const [prefs, setPrefs] = useState(getProfilePreferences());
+  const [earthquakeState, setEarthquakeState] = useState({ events: [] });
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [lastError, setLastError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -19,14 +33,65 @@ const HomeScreen = ({ navigation }) => {
   const city = prefs.city || 'İstanbul';
   const alertThreshold = Number(prefs.threshold || 5);
 
-  const earthquakes = useMemo(() => getEarthquakesByCity(city), [city]);
-  const informativeEvents = useMemo(
-    () => earthquakes.filter((event) => event.magnitude >= 2),
-    [earthquakes]
+  const loadRecentEvents = useCallback(
+    async ({ silent = false, cancelRef } = {}) => {
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoadingEvents(true);
+      }
+      setLastError('');
+
+      try {
+        const result = await fetchCityEarthquakes({ lookbackDays: 7, minMagnitude: 1.2 });
+        if (cancelRef?.current) {
+          return;
+        }
+        setEarthquakeState(result);
+      } catch (error) {
+        if (cancelRef?.current) {
+          return;
+        }
+        setEarthquakeState({ events: [] });
+        setLastError(error?.message || 'Veri kaynaklarına ulaşılamadı.');
+      } finally {
+        if (cancelRef?.current) {
+          return;
+        }
+        if (silent) {
+          setRefreshing(false);
+        } else {
+          setLoadingEvents(false);
+        }
+      }
+    },
+    []
   );
+
+  useEffect(() => {
+    const cancelRef = { current: false };
+    loadRecentEvents({ cancelRef });
+    return () => {
+      cancelRef.current = true;
+    };
+  }, [loadRecentEvents]);
+
   useEffect(() => {
     ensureNotificationSetup();
   }, []);
+
+  const earthquakes = earthquakeState.events || [];
+  const primaryEvents = useMemo(
+    () => earthquakes.filter((event) => Number(event.magnitude) >= 3),
+    [earthquakes]
+  );
+  const displayEvents = useMemo(() => {
+    if (primaryEvents.length > 0) {
+      return primaryEvents;
+    }
+    return earthquakes;
+  }, [primaryEvents, earthquakes]);
+  const usingFallbackEvents = primaryEvents.length === 0 && earthquakes.length > 0;
 
   const handleTestNotification = async () => {
     const result = await triggerManualThresholdTest({
@@ -43,84 +108,91 @@ const HomeScreen = ({ navigation }) => {
     if (result.reason === 'permission') {
       Alert.alert('İzin gerekli', 'Bildirim izni verilmediği için uyarı gönderilemedi.');
     } else if (result.reason === 'missing-data') {
-      Alert.alert('Veri bulunamadı', `${city} için örnek deprem kaydı yok.`);
+      Alert.alert('Veri bulunamadı', `${city} için deprem kaydı yok.`);
     } else {
       Alert.alert('Eşik aşılmadı', `${alertThreshold.toFixed(1)}+ sarsıntı olmadığı için test yapılamadı.`);
     }
   };
 
+  const handleRefreshEvents = () => {
+    loadRecentEvents({ silent: true });
+  };
+
   return (
     <ScreenWrapper>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefreshEvents} tintColor="#be185d" />}
+      >
         <View style={styles.container}>
-        <View style={styles.hero}>
-          <TouchableOpacity style={styles.testBadge} onPress={handleTestNotification} activeOpacity={0.8}>
-            <Text style={styles.testBadgeText}>Test</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.profileFab}
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.85}
-            hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
-          >
-            <Text style={styles.profileFabText}>Profilim</Text>
-          </TouchableOpacity>
-          <Text style={styles.heroTitle}>Son Uyarılar</Text>
-          <Text style={styles.heroHint}>
-            {city} için son sarsıntılar (2.0+). Kaynak: Google Deprem Haritaları örnek datası.
-          </Text>
-          {informativeEvents.length === 0 ? (
-            <Text style={styles.emptyText}>Şu anda bilgi amaçlı kayıt bulunmuyor.</Text>
-          ) : (
-            informativeEvents.slice(0, 5).map((event) => (
-              <View key={event.id} style={styles.eventRow}>
-                <Text style={styles.eventMagnitude}>{event.magnitude.toFixed(1)}</Text>
-                <View style={styles.eventDetails}>
-                  <Text style={styles.eventLocation}>{event.location}</Text>
-                  <Text style={styles.eventMeta}>
-                    {new Date(event.time).toLocaleString('tr-TR')} · {event.depthKm} km
-                  </Text>
-                </View>
+          <View style={styles.hero}>
+            <TouchableOpacity style={styles.testBadge} onPress={handleTestNotification} activeOpacity={0.8}>
+              <Text style={styles.testBadgeText}>Test</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileFab}
+              onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.85}
+              hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
+            >
+              <Text style={styles.profileFabText}>Profilim</Text>
+            </TouchableOpacity>
+            <Text style={styles.heroTitle}>Son Depremler</Text>
+            <Text style={styles.heroHint}>Türkiye genelindeki son 3.0+ sarsıntılar.</Text>
+            {loadingEvents ? (
+              <View style={styles.loaderRow}>
+                <ActivityIndicator color="#be185d" />
+                <Text style={styles.loadingText}>Veriler guncelleniyor...</Text>
               </View>
-            ))
-          )}
-          <Text style={styles.cityNote}>Profilimde seçili şehir: {city}</Text>
-        </View>
+            ) : null}
+            {displayEvents.length === 0 ? (
+              <Text style={styles.emptyText}>{lastError || 'Bu aralikta kayit bulunamadi.'}</Text>
+            ) : (
+              displayEvents.slice(0, 4).map((event) => (
+                <View key={event.id} style={styles.eventRow}>
+                  <Text style={styles.eventMagnitude}>{Number(event.magnitude).toFixed(1)}</Text>
+                  <View style={styles.eventDetails}>
+                    <Text style={styles.eventLocation}>{event.location}</Text>
+                    <Text style={styles.eventMeta}>
+                      {new Date(event.time).toLocaleString('tr-TR')} - {event.depthKm ?? '?'} km - {event.source}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+            {lastError ? <Text style={styles.errorNote}>{lastError}</Text> : null}
+          </View>
 
-        <View style={styles.actions}>
-          {Platform.OS !== 'web' && (
+          <View style={styles.actions}>
+            {Platform.OS !== 'web' && (
+              <PrimaryButton title="Konumum" onPress={() => navigation.navigate('MapExplorer')} colorScheme="mint" />
+            )}
             <PrimaryButton
-              title="Konumum"
-              onPress={() => navigation.navigate('MapExplorer')}
+              title="Güvenli Alan Analizi"
+              onPress={() => navigation.navigate('SafeSpot')}
               colorScheme="mint"
             />
-          )}
-          <PrimaryButton
-            title="Güvenli Alan Analizi"
-            onPress={() => navigation.navigate('SafeSpot')}
-            colorScheme="mint"
-          />
-          <PrimaryButton
-            title="Acil Durum"
-            onPress={() => navigation.navigate('EmergencyStatus')}
-            colorScheme="danger"
-            style={styles.emergencyButton}
-            textStyle={styles.emergencyButtonText}
-          />
-          <PrimaryButton
-            title="Acil Durum Kişileri"
-            onPress={() => navigation.navigate('Contacts')}
-            colorScheme="mint"
-          />
-          <PrimaryButton
-            title="Deprem Geçmişi"
-            onPress={() => navigation.navigate('EarthquakeFeed', { city })}
-            colorScheme="mint"
-          />
-        </View>
+            <PrimaryButton
+              title="Acil Durum"
+              onPress={() => navigation.navigate('EmergencyStatus')}
+              colorScheme="danger"
+              style={styles.emergencyButton}
+              textStyle={styles.emergencyButtonText}
+            />
+            <PrimaryButton
+              title="Acil Durum Kişileri"
+              onPress={() => navigation.navigate('Contacts')}
+              colorScheme="mint"
+            />
+            <PrimaryButton
+              title="Deprem Geçmişi"
+              onPress={() => navigation.navigate('EarthquakeFeed', { city })}
+              colorScheme="mint"
+            />
+          </View>
 
-        <View style={styles.alertsGrid} />
-      </View>
+          <View style={styles.alertsGrid} />
+        </View>
       </ScrollView>
     </ScreenWrapper>
   );
@@ -201,11 +273,6 @@ const styles = StyleSheet.create({
     color: '#9f1239',
     marginVertical: 8,
   },
-  cityNote: {
-    marginTop: 12,
-    fontSize: 13,
-    color: '#be185d',
-  },
   actions: {
     marginTop: 24,
     paddingBottom: 16,
@@ -249,12 +316,27 @@ const styles = StyleSheet.create({
   },
   eventLocation: {
     fontSize: 15,
-    fontWeight:  '700',
+    fontWeight: '700',
     color: '#831843',
   },
   eventMeta: {
     fontSize: 12,
     color: '#9f1239',
+  },
+  loaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  loadingText: {
+    color: '#be185d',
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  errorNote: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#b91c1c',
   },
 });
 

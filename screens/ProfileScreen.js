@@ -2,20 +2,20 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
-import { getKnownCities } from '../logic/mockEarthquakes';
+import PROVINCES from '../logic/provinces';
 import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
 
 const THRESHOLD_OPTIONS = [5, 6, 7];
+const CITY_OPTIONS = PROVINCES;
 
 const ProfileScreen = () => {
-  const cityOptions = getKnownCities();
   const storedPrefs = getProfilePreferences();
   const [profile, setProfile] = useState({
     name: storedPrefs.name || '',
     surname: storedPrefs.surname || '',
     age: '',
     address: '',
-    city: storedPrefs.city || cityOptions[0] || 'İstanbul',
+    city: storedPrefs.city || CITY_OPTIONS[0] || 'İstanbul',
     threshold: storedPrefs.threshold || 5,
   });
   const [error, setError] = useState('');
@@ -155,8 +155,8 @@ const ProfileScreen = () => {
         </View>
 
         <Text style={styles.disclaimer}>
-          Deprem verileri çevrim dışı prototip kaynağıdır. Güncel duyurular için Google Deprem Haritaları ve AFAD
-          bildirimlerini takip et.
+          Deprem verileri AFAD, Kandilli, USGS, EMSC ve IRIS kataloglarından otomatik çekilir; yine de resmi AFAD
+          duyurularını ve yerel yönetim bildirimlerini takip et.
         </Text>
       </ScrollView>
 
@@ -165,7 +165,7 @@ const ProfileScreen = () => {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Şehrini seç</Text>
             <ScrollView style={styles.modalList}>
-              {cityOptions.map((city) => {
+              {CITY_OPTIONS.map((city) => {
                 const active = city === profile.city;
                 return (
                   <TouchableOpacity

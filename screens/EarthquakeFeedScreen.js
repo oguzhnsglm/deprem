@@ -1,67 +1,142 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
-import { getAllEarthquakes } from '../logic/mockEarthquakes';
 import PROVINCES from '../logic/provinces';
 import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
+import { fetchCityEarthquakes } from '../logic/earthquakeSources';
+
+const ALL_CITIES_OPTION = 'Tüm Şehirler';
 
 const EarthquakeFeedScreen = ({ route }) => {
-  const dataset = getAllEarthquakes();
   const profilePrefs = getProfilePreferences();
   const initialCity = route.params?.city || profilePrefs.city || 'İstanbul';
   const [selectedCity, setSelectedCity] = useState(initialCity);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastError, setLastError] = useState('');
 
-  const events = useMemo(() => {
-    const entry = dataset.find((item) => item.city === selectedCity);
-    return entry ? entry.events : [];
-  }, [selectedCity, dataset]);
+  const loadCityEvents = useCallback(
+    async (cityName, { silent } = {}) => {
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setLastError('');
+
+      try {
+        const isAllCities = cityName === ALL_CITIES_OPTION;
+        const result = await fetchCityEarthquakes({
+          city: isAllCities ? undefined : cityName,
+          lookbackDays: 60,
+          minMagnitude: 1.2,
+        });
+        setEvents(result.events || []);
+      } catch (error) {
+        setEvents([]);
+        setLastError(error?.message || 'Veri yüklenemedi.');
+      } finally {
+        if (silent) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    loadCityEvents(selectedCity);
+  }, [selectedCity, loadCityEvents]);
+
+  const handleRefresh = () => {
+    loadCityEvents(selectedCity, { silent: true });
+  };
+
+  const hadEvents = events.length > 0;
+  const showAllCities = selectedCity === ALL_CITIES_OPTION;
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
-        <Text style={styles.title}>Deprem geçmişi</Text>
-        <TouchableOpacity
-          style={styles.selector}
-          onPress={() => setCityModalVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.selectorLabel}>Şehir</Text>
-          <Text style={styles.selectorValue}>{selectedCity}</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Deprem geçmişi</Text>
+          <TouchableOpacity onPress={handleRefresh} style={styles.refreshMiniButton} activeOpacity={0.8}>
+            <Text style={styles.refreshMiniText}>Yenile</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
+          <View style={styles.selectorValueRow}>
+            <View>
+              <Text style={styles.selectorLabel}>Şehir</Text>
+              <Text style={styles.selectorValue}>{selectedCity}</Text>
+            </View>
+            <Text style={styles.selectorArrow}>{'∨'}</Text>
+          </View>
         </TouchableOpacity>
 
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator color="#be185d" />
+            <Text style={styles.loaderText}>Veriler çekiliyor...</Text>
+          </View>
+        ) : null}
+        {showAllCities ? (
+          <Text style={styles.allHint}>Tüm Türkiye için 60 günlük 1.2+ kayıtlar listelenir.</Text>
+        ) : null}
+
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#be185d" />}
+        >
           {events.map((event) => (
-            <View key={event.id} style={styles.eventCard}>
+            <View key={`${event.source}-${event.id}`} style={styles.eventCard}>
               <View style={styles.eventHeader}>
-                <Text style={styles.magnitude}>{event.magnitude.toFixed(1)}</Text>
+                <Text style={styles.magnitude}>{Number(event.magnitude).toFixed(1)}</Text>
                 <View style={styles.headerDetails}>
                   <Text style={styles.location}>{event.location}</Text>
                   <Text style={styles.meta}>
-                    {new Date(event.time).toLocaleString('tr-TR')} · {event.depthKm} km
+                    {new Date(event.time).toLocaleString('tr-TR')} - {event.depthKm ?? '?'} km - {event.source}
                   </Text>
                 </View>
               </View>
               <Text style={styles.eventNote}>
-                Bu liste yalnızca bilgi amaçlıdır. Profilindeki eşik değerinden düşük sarsıntılar bildirim tetiklemez. Gerçek
-                zamanlı veriler için Google Deprem Haritaları ve AFAD duyurularını takip et.
+                Bu liste bilgilendirme amaclidir. Kritik duyurular icin resmi kurum bildirimlerini takip et.
               </Text>
             </View>
           ))}
-          {events.length === 0 ? (
+
+          {!hadEvents && !loading ? (
             <Text style={styles.empty}>
-              Bu şehir için prototip veri bulunamadı. En güncel veriler için Google Deprem Haritaları ve AFAD’ı takip et.
+              {showAllCities
+                ? 'Bu tarih aralığında kayıt bulunamadı. Resmi bildirimler için AFAD ve Kandilli kanallarını kontrol et.'
+                : 'Bu şehir için seçilen tarih aralığında kayıt bulunamadı. Resmi bildirimler için AFAD ve Kandilli kanallarını kontrol et.'}
             </Text>
           ) : null}
         </ScrollView>
       </View>
+
       <Modal visible={cityModalVisible} transparent animationType="slide" onRequestClose={() => setCityModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Şehri seç</Text>
             <ScrollView style={styles.modalList}>
-              {PROVINCES.map((province) => (
+              {[ALL_CITIES_OPTION, ...PROVINCES].map((province) => (
                 <TouchableOpacity
                   key={province}
                   style={[styles.modalItem, province === selectedCity && styles.modalItemActive]}
@@ -95,6 +170,28 @@ const styles = StyleSheet.create({
     color: '#831843',
     marginBottom: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  refreshMiniButton: {
+    position: 'absolute',
+    right: 0,
+    top: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(187, 247, 208, 0.8)',
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  refreshMiniText: {
+    color: '#15803d',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   selector: {
     borderRadius: 18,
     borderWidth: 1,
@@ -102,18 +199,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff1f2',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  selectorValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
   selectorLabel: {
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     color: '#be185d',
+    marginBottom: 2,
   },
   selectorValue: {
     fontSize: 18,
     fontWeight: '800',
     color: '#831843',
+  },
+  selectorArrow: {
+    marginLeft: 12,
+    fontSize: 30,
+    color: '#6b021a',
+    fontWeight: '900',
+  },
+  errorText: {
+    color: '#b91c1c',
+    marginBottom: 8,
   },
   list: {
     flex: 1,
@@ -201,6 +315,20 @@ const styles = StyleSheet.create({
   },
   modalItemTextActive: {
     fontWeight: '700',
+  },
+  loader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  loaderText: {
+    marginLeft: 8,
+    color: '#be185d',
+  },
+  allHint: {
+    fontSize: 12,
+    color: '#9f1239',
+    marginBottom: 8,
   },
 });
 
