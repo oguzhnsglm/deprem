@@ -16,7 +16,20 @@ npm install
 npx expo start
 ```
 
+### Vs30 zemin servisi
+
+Harita uzerinde uzun basilinca zeminin Vs30 degerini gormek icin repo kokundeki `server/` klasorunu calistirin:
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+Uygulama tarafinda `.env` dosyasina yerel IP adresinizi iceren `EXPO_PUBLIC_VS30_API_BASE` degiskenini girin (ornegin `http://192.168.1.42:4000`).
+
 ## Notlar
 - Kamera, konum ve bildirim fonksiyonlari su anda yalnizca mock olarak yer aliyor.
 - Uygulama icerigi aile odakli bir yonlendirme senaryosunu temsil eder.
 - Harita ekraninda Google Places verisi kullanmak icin `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` cevresel degiskenini calistirma aninda ayarlamalisiniz. Anahtar yoksa uygulama Istanbul icin yerel mock veriye geri duser.
+- `.grd` raster dosyasi yuklenemezse GDAL ile `gdal_translate global_vs30.grd global_vs30.tif` komutunu calistirip API'yi `.tif` uzerinden kullanabilirsiniz.
