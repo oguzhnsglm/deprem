@@ -4,11 +4,15 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const gdal = require('gdal-async');
+const turf = require('@turf/turf');
 
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 
 const PORT = process.env.VS30_PORT || 4000;
 const DATASET_PATH = process.env.VS30_DATASET || path.resolve(__dirname, '..', 'global_vs30.grd');
+const FAULTS_DATASET_PATH =
+  process.env.FAULTS_DATASET ||
+  path.resolve(__dirname, 'data', 'faults.geojson', 'faults.geojson');
 
 const app = express();
 app.use(cors());
@@ -17,6 +21,7 @@ let dataset;
 let band;
 let geoTransform;
 let noDataValue = null;
+let faultSegments = [];
 
 function loadRaster() {
   if (!fs.existsSync(DATASET_PATH)) {
@@ -36,6 +41,32 @@ function loadRaster() {
     });
   } catch (error) {
     console.error('[VS30] Raster yüklenemedi:', error);
+  }
+}
+
+function loadFaults() {
+  if (!fs.existsSync(FAULTS_DATASET_PATH)) {
+    console.warn(`[Faults] Veri bulunamadı: ${FAULTS_DATASET_PATH}`);
+    return;
+  }
+
+  try {
+    const raw = fs.readFileSync(FAULTS_DATASET_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.type !== 'FeatureCollection' || !Array.isArray(parsed.features)) {
+      console.warn('[Faults] GeoJSON FeatureCollection bekleniyordu.');
+      return;
+    }
+    faultSegments = parsed.features
+      .filter((feature) => feature?.geometry)
+      .map((feature) => ({
+        feature,
+        bbox: turf.bbox(feature),
+      }));
+    console.log(`[Faults] Veri yüklendi: ${faultSegments.length} segment.`);
+  } catch (error) {
+    console.error('[Faults] Veri yüklenemedi:', error);
+    faultSegments = [];
   }
 }
 
@@ -87,6 +118,66 @@ function classifyVs30(value) {
   return 'E';
 }
 
+function scoreForDistance(distanceKm) {
+  let proximityScore = 10;
+  if (distanceKm <= 2) {
+    proximityScore = 95;
+  } else if (distanceKm <= 5) {
+    proximityScore = 80;
+  } else if (distanceKm <= 10) {
+    proximityScore = 60;
+  } else if (distanceKm <= 25) {
+    proximityScore = 30;
+  }
+
+  let level = 'Çok Düşük';
+  if (proximityScore >= 85) {
+    level = 'Çok Yüksek';
+  } else if (proximityScore >= 70) {
+    level = 'Yüksek';
+  } else if (proximityScore >= 45) {
+    level = 'Orta';
+  } else if (proximityScore >= 20) {
+    level = 'Düşük';
+  }
+
+  return { proximityScore, level };
+}
+
+function getFaultDistanceInfo(lat, lon) {
+  if (!faultSegments.length) {
+    return null;
+  }
+  const queryPoint = turf.point([lon, lat]);
+  let closestDistance = Infinity;
+
+  faultSegments.forEach((segment) => {
+    try {
+      const snapped = turf.nearestPointOnLine(segment.feature, queryPoint);
+      const distance = turf.distance(queryPoint, snapped, { units: 'kilometers' });
+      if (distance < closestDistance) {
+        closestDistance = distance;
+      }
+    } catch (error) {
+      console.warn('[Faults] Segment hesabı başarısız oldu:', error?.message || error);
+    }
+  });
+
+  if (!Number.isFinite(closestDistance)) {
+    return null;
+  }
+
+  const rounded = Number(closestDistance.toFixed(2));
+  const { proximityScore, level } = scoreForDistance(rounded);
+
+  return {
+    distance_km: rounded,
+    proximity_score: proximityScore,
+    level,
+    note: 'Bilgilendirme amaçlıdır; deprem olasılığı tahmini değildir.',
+  };
+}
+
 app.get('/vs30', (req, res) => {
   if (!band) {
     return res.status(503).json({ error: 'Vs30 raster henüz yüklenmedi.' });
@@ -111,11 +202,36 @@ app.get('/vs30', (req, res) => {
   return res.json({ lat, lon, vs30, soilClass, unit: 'm/s' });
 });
 
+app.get('/api/fault-distance', (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lon = parseFloat(req.query.lon);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return res.status(400).json({ error: 'lat ve lon sayısal olmalıdır.' });
+  }
+
+  if (!faultSegments.length) {
+    return res.status(503).json({ error: 'Fay verisi henüz yüklenmedi.' });
+  }
+
+  const result = getFaultDistanceInfo(lat, lon);
+  if (!result) {
+    return res.status(500).json({ error: 'Fay mesafesi hesaplanamadı.' });
+  }
+
+  return res.json({
+    lat,
+    lon,
+    ...result,
+  });
+});
+
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', info: 'Use /vs30?lat=..&lon=..' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   loadRaster();
-  console.log(`[VS30] API listening on http://localhost:${PORT}`);
+  loadFaults();
+  console.log(`[VS30] API listening on http://0.0.0.0:${PORT}`);
 });
