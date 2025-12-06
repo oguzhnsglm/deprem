@@ -7,10 +7,10 @@ const navigationTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#fff1f2',
-    card: '#fbcfe8',
-    text: '#831843',
-    border: '#fecdd3',
+    background: '#120a0f',
+    card: '#0f1114',
+    text: '#f8fafc',
+    border: '#1f2933',
   },
 };
 

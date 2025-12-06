@@ -17,30 +17,6 @@ if (Platform.OS !== 'web') {
 
 const Stack = createNativeStackNavigator();
 
-const HomeHeaderTitle = () => (
-  <View style={{ alignItems: 'center' }}>
-    <Text
-      style={{
-        fontSize: 22,
-        fontWeight: '900',
-        color: '#831843',
-        letterSpacing: 0.5,
-      }}
-    >
-      Deprem Rehberi
-    </Text>
-    <View
-      style={{
-        marginTop: 4,
-        width: 60,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: '#f472b6',
-      }}
-    />
-  </View>
-);
-
 const StackNavigator = () => {
   return (
     <Stack.Navigator
@@ -57,8 +33,7 @@ const StackNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Deprem Rehberi',
-          headerTitle: HomeHeaderTitle,
+          headerShown: false,
         }}
       />
       <Stack.Screen name="SafeSpot" component={SafeSpotScreen} options={{ title: 'Güvenli Alan Analizi' }} />

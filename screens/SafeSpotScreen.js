@@ -167,7 +167,7 @@ const SafeSpotScreen = () => {
           </View>
           {isAnalyzing && (
             <View style={styles.loadingRow}>
-              <ActivityIndicator color="#be185d" size="small" />
+              <ActivityIndicator color="#f8fafc" size="small" />
               <Text style={styles.loadingText}>Fotoğraf inceleniyor...</Text>
             </View>
           )}
@@ -304,11 +304,11 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   photoCard: {
-    backgroundColor: '#ffe4e6',
+    backgroundColor: '#0f1114',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: '#1f2933',
     marginBottom: 12,
   },
   buttonRow: {
@@ -322,19 +322,19 @@ const styles = StyleSheet.create({
   photoTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#be185d',
+    color: '#f8fafc',
     marginBottom: 10,
   },
   photoText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#9f1239',
+    color: '#fca5a5',
     marginBottom: 14,
   },
   photoHint: {
     marginTop: 12,
     fontSize: 13,
-    color: '#be185d',
+    color: '#f8fafc',
   },
   errorText: {
     marginTop: 8,
@@ -349,10 +349,10 @@ const styles = StyleSheet.create({
   loadingText: {
     marginLeft: 8,
     fontSize: 13,
-    color: '#be185d',
+    color: '#f8fafc',
   },
   previewCard: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#0f1114',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,

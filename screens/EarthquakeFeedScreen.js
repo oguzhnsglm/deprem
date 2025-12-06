@@ -15,11 +15,11 @@ import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
 
-const ALL_CITIES_OPTION = 'Tüm Şehirler';
+const ALL_CITIES_OPTION = 'Tum Sehirler';
 
 const EarthquakeFeedScreen = ({ route }) => {
   const profilePrefs = getProfilePreferences();
-  const initialCity = route.params?.city || profilePrefs.city || 'İstanbul';
+  const initialCity = route.params?.city || profilePrefs.city || 'Istanbul';
   const [selectedCity, setSelectedCity] = useState(initialCity);
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [events, setEvents] = useState([]);
@@ -73,7 +73,7 @@ const EarthquakeFeedScreen = ({ route }) => {
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Deprem geçmişi</Text>
+          <Text style={styles.title}>Deprem Gecmisi</Text>
           <TouchableOpacity onPress={handleRefresh} style={styles.refreshMiniButton} activeOpacity={0.8}>
             <Text style={styles.refreshMiniText}>Yenile</Text>
           </TouchableOpacity>
@@ -81,17 +81,17 @@ const EarthquakeFeedScreen = ({ route }) => {
         <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
           <View style={styles.selectorValueRow}>
             <View>
-              <Text style={styles.selectorLabel}>Şehir</Text>
+              <Text style={styles.selectorLabel}>Sehir</Text>
               <Text style={styles.selectorValue}>{selectedCity}</Text>
             </View>
-            <Text style={styles.selectorArrow}>{'∨'}</Text>
+            <Text style={styles.selectorArrow}>v</Text>
           </View>
         </TouchableOpacity>
 
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
         {loading ? (
           <View style={styles.loader}>
-            <ActivityIndicator color="#be185d" />
+            <ActivityIndicator color="#f8fafc" />
             <Text style={styles.loaderText}>Veriler çekiliyor...</Text>
           </View>
         ) : null}
@@ -102,7 +102,7 @@ const EarthquakeFeedScreen = ({ route }) => {
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#be185d" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#f8fafc" />}
         >
           {events.map((event) => (
             <View key={`${event.source}-${event.id}`} style={styles.eventCard}>
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#831843',
+    color: '#f8fafc',
     marginBottom: 12,
   },
   headerRow: {
@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
   selector: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    backgroundColor: '#fff1f2',
+    borderColor: '#1f2933',
+    backgroundColor: '#120a0f',
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 10,
@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    color: '#be185d',
+    color: '#f8fafc',
     marginBottom: 2,
   },
   selectorValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#831843',
+    color: '#f8fafc',
   },
   selectorArrow: {
     marginLeft: 12,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   errorText: {
-    color: '#b91c1c',
+    color: '#f87171',
     marginBottom: 8,
   },
   list: {
@@ -238,14 +238,14 @@ const styles = StyleSheet.create({
   eventCard: {
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    backgroundColor: '#ffffff',
+    borderColor: '#1f2933',
+    backgroundColor: '#0f1114',
     padding: 16,
     marginBottom: 14,
-    shadowColor: 'rgba(190, 24, 93, 0.12)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
     elevation: 10,
   },
   eventHeader: {
@@ -265,18 +265,18 @@ const styles = StyleSheet.create({
   location: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#831843',
+    color: '#f8fafc',
   },
   meta: {
     fontSize: 13,
-    color: '#9f1239',
+    color: '#fca5a5',
   },
   eventNote: {
     fontSize: 13,
     color: '#9d174d',
   },
   empty: {
-    color: '#831843',
+    color: '#f8fafc',
     textAlign: 'center',
     marginTop: 40,
   },
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#0f1114',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#831843',
+    color: '#f8fafc',
     marginBottom: 12,
   },
   modalList: {
@@ -304,13 +304,13 @@ const styles = StyleSheet.create({
   modalItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#fde2e4',
+    borderBottomColor: '#1f2933',
   },
   modalItemActive: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: '#120a0f',
   },
   modalItemText: {
-    color: '#831843',
+    color: '#f8fafc',
     fontSize: 16,
   },
   modalItemTextActive: {
@@ -323,11 +323,11 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginLeft: 8,
-    color: '#be185d',
+    color: '#f8fafc',
   },
   allHint: {
     fontSize: 12,
-    color: '#9f1239',
+    color: '#fca5a5',
     marginBottom: 8,
   },
 });

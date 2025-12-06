@@ -94,23 +94,20 @@ const ContactsScreen = () => {
 
   const toggleForm = () => {
     setShowForm((prev) => {
-      const nextState = !prev;
-      if (nextState) {
+      const next = !prev;
+      if (next) {
         setTimeout(() => {
           scrollRef.current?.scrollToEnd({ animated: true });
         }, 150);
       }
-      return nextState;
+      return next;
     });
     setError('');
   };
 
   return (
     <ScreenWrapper>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.select({ ios: 'padding', android: undefined })}>
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Acil Durum Kişileri</Text>
@@ -126,7 +123,7 @@ const ContactsScreen = () => {
             ref={scrollRef}
           >
             <View style={styles.alertCard}>
-              <Text style={styles.alertTitle}>Nasıl çalışır?</Text>
+              <Text style={styles.alertTitle}>Nasıl Çalışıyor?</Text>
               <Text style={styles.alertHint}>
                 Profilindeki eşik aşıldığında önce sana bildirim gelir. 2 dakika içinde yanıt vermezsen buradaki kişilere konumun
                 SMS ile gönderilir.
@@ -153,32 +150,37 @@ const ContactsScreen = () => {
                 closeness={contact.closeness}
               />
             ))}
+
             <TouchableOpacity style={styles.inlineAddButton} onPress={toggleForm} activeOpacity={0.85}>
-              <Text style={styles.inlineAddButtonText}>{showForm ? 'Kişi ekleme formunu kapat' : 'Yeni kişi ekle'}</Text>
+              <Text style={styles.inlineAddButtonText}>
+                {showForm ? 'Kişi ekleme formunu kapat' : 'Yeni kişi ekle'}
+              </Text>
             </TouchableOpacity>
+
             {showForm ? (
               <View style={styles.formCard}>
                 <Text style={styles.formTitle}>Yeni kişi ekle</Text>
+
                 <View style={styles.inputGroup}>
                   <TextInput
                     value={name}
                     onChangeText={setName}
                     placeholder="Ad Soyad"
-                    placeholderTextColor="rgba(131, 24, 67, 0.5)"
+                    placeholderTextColor="#9ca3af"
                     style={styles.input}
                   />
                   <TextInput
                     value={relation}
                     onChangeText={setRelation}
                     placeholder="İlişki (Örn: Anne, Kardeş, Komşu)"
-                    placeholderTextColor="rgba(131, 24, 67, 0.5)"
+                    placeholderTextColor="#9ca3af"
                     style={styles.input}
                   />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
                     placeholder="E-posta"
-                    placeholderTextColor="rgba(131, 24, 67, 0.5)"
+                    placeholderTextColor="#9ca3af"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={styles.input}
@@ -194,7 +196,7 @@ const ContactsScreen = () => {
                         }
                       }}
                       placeholder="5551234567"
-                      placeholderTextColor="rgba(131, 24, 67, 0.5)"
+                      placeholderTextColor="#9ca3af"
                       keyboardType="number-pad"
                       style={styles.phoneInput}
                     />
@@ -217,9 +219,11 @@ const ContactsScreen = () => {
                       );
                     })}
                   </View>
-                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 </View>
-                <PrimaryButton title="Kişiyi Kaydet" onPress={handleAddContact} />
+
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                <PrimaryButton title="Kişiyi Kaydet" onPress={handleAddContact} colorScheme="mint" />
               </View>
             ) : null}
           </ScrollView>
@@ -237,86 +241,127 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    marginBottom: 26,
-    paddingTop: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#fed7e2',
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#831843',
-    letterSpacing: 0.4,
-    textAlign: 'center',
+    color: '#f8fafc',
   },
   subtitle: {
+    marginTop: 8,
+    color: '#e5e7eb',
+    lineHeight: 20,
+    fontSize: 14,
+  },
+  list: {
+    paddingBottom: 36,
+  },
+  alertCard: {
+    backgroundColor: '#0f1114',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1f2933',
+    marginBottom: 18,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f8fafc',
+  },
+  alertHint: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    marginTop: 6,
+  },
+  alertEmpty: {
     marginTop: 10,
-    fontSize: 15,
-    lineHeight: 23,
-    color: '#9f1239',
-    textAlign: 'center',
+    color: '#f87171',
+    fontWeight: '700',
+  },
+  alertRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  alertName: {
+    color: '#f8fafc',
+    fontWeight: '700',
+  },
+  alertRelation: {
+    color: '#cbd5e1',
+  },
+  inlineAddButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#0f1114',
+    borderWidth: 1,
+    borderColor: '#1f2933',
+  },
+  inlineAddButtonText: {
+    color: '#f8fafc',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   formCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0f1114',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    marginBottom: 20,
-    shadowColor: 'rgba(190, 24, 93, 0.15)',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
-    elevation: 14,
+    borderColor: '#1f2933',
+    marginTop: 14,
   },
   formTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#be185d',
+    fontWeight: '800',
+    color: '#f8fafc',
     marginBottom: 12,
   },
   inputGroup: {
     marginBottom: 10,
   },
   input: {
-    backgroundColor: '#fff1f2',
+    backgroundColor: '#120a0f',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#831843',
+    color: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: '#1f2933',
     marginBottom: 12,
     fontSize: 15,
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff1f2',
+    backgroundColor: '#120a0f',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#fecdd3',
+    borderColor: '#1f2933',
     paddingHorizontal: 14,
     paddingVertical: 4,
     marginBottom: 12,
   },
   phonePrefix: {
-    color: '#be185d',
+    color: '#f8fafc',
     fontWeight: '700',
     fontSize: 16,
     marginRight: 8,
   },
   phoneInput: {
     flex: 1,
-    color: '#831843',
+    color: '#f8fafc',
     fontSize: 16,
     paddingVertical: 8,
   },
   segmentLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#be185d',
+    color: '#f8fafc',
     marginBottom: 8,
     letterSpacing: 0.4,
   },
@@ -330,77 +375,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(251, 113, 133, 0.5)',
+    borderColor: '#1f2933',
     marginRight: 10,
     marginBottom: 10,
   },
   segmentChipActive: {
-    backgroundColor: 'rgba(251, 113, 133, 0.25)',
-    borderColor: '#fb7185',
+    backgroundColor: 'rgba(244, 114, 182, 0.18)',
+    borderColor: 'rgba(244, 114, 182, 0.6)',
   },
   segmentChipText: {
-    color: '#be185d',
+    color: '#f8fafc',
     fontWeight: '600',
   },
   segmentChipTextActive: {
-    color: '#9d174d',
+    color: '#f472b6',
   },
   errorText: {
-    color: '#dc2626',
+    color: '#f87171',
     fontSize: 13,
     marginTop: 2,
-  },
-  list: {
-    paddingBottom: 36,
-  },
-  alertCard: {
-    backgroundColor: '#fff0f4',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#fda4af',
-    marginBottom: 18,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#b91c1c',
-  },
-  alertHint: {
-    fontSize: 13,
-    color: '#9f1239',
-    marginTop: 6,
-  },
-  alertEmpty: {
-    marginTop: 10,
-    color: '#b91c1c',
-  },
-  alertRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  alertName: {
-    color: '#831843',
-    fontWeight: '700',
-  },
-  alertRelation: {
-    color: '#be185d',
-  },
-  inlineAddButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: '#ffe4e6',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-  },
-  inlineAddButtonText: {
-    color: '#831843',
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
 });
 

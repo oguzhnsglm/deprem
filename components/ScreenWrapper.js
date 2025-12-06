@@ -7,6 +7,11 @@ const VARIANTS = {
     blobTop: 'rgba(251, 207, 232, 0.6)',
     blobBottom: 'rgba(254, 226, 226, 0.55)',
   },
+  crimson: {
+    background: ['#1a0c12', '#3b0f18'],
+    blobTop: 'rgba(255, 76, 112, 0.28)',
+    blobBottom: 'rgba(120, 15, 40, 0.38)',
+  },
   green: {
     background: ['#c7f9cc', '#e8f8f5'],
     blobTop: 'rgba(74, 222, 128, 0.35)',
@@ -14,7 +19,7 @@ const VARIANTS = {
   },
 };
 
-const ScreenWrapper = ({ children, variant = 'pink' }) => {
+const ScreenWrapper = ({ children, variant = 'crimson' }) => {
   const pulse = useRef(new Animated.Value(0)).current;
   const scheme = VARIANTS[variant] || VARIANTS.pink;
 

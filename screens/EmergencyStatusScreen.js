@@ -79,7 +79,7 @@ const EmergencyStatusScreen = ({ navigation }) => {
           <PrimaryButton
             title={'Yardıma ihtiyacım\nvar'}
             onPress={() => handleSelectStatus('Yardıma ihtiyacım var')}
-            colorScheme="danger"
+            colorScheme={{ start: '#ff5f6d', end: '#d7263d', shadow: '#7f1022', ripple: 'rgba(255, 255, 255, 0.35)' }}
             style={styles.helpButton}
             textStyle={styles.helpButtonText}
           />
@@ -95,21 +95,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0f1114',
     borderRadius: 22,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#fecdd3',
-    shadowColor: 'rgba(190, 24, 93, 0.15)',
+    borderColor: '#1f2933',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 22,
-    elevation: 18,
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#831843',
+    color: '#f8fafc',
     marginBottom: 12,
   },
   stepRow: {
@@ -121,26 +121,26 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#7f1022',
     borderWidth: 1,
-    borderColor: '#fda4af',
+    borderColor: '#1f2933',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   stepBadgeText: {
-    color: '#be123c',
+    color: '#f8fafc',
     fontWeight: '800',
   },
   step: {
     flex: 1,
     fontSize: 14,
-    color: '#9d174d',
+    color: '#e5e7eb',
     lineHeight: 22,
     fontWeight: '700',
   },
   stepHighlight: {
-    color: '#be123c',
+    color: '#f87171',
     fontWeight: '800',
   },
   actions: {
