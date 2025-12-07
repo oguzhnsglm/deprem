@@ -81,12 +81,12 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(124, 16, 34, 0.45)',
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: '#991b1b',
     marginBottom: 16,
   },
   statusText: {
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emergencyButton: {
-    backgroundColor: '#7f1022',
+    backgroundColor: '#7f1d1d',
     borderRadius: 18,
     paddingVertical: 18,
     paddingHorizontal: 12,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(220, 38, 38, 0.3)',
+    shadowColor: 'rgba(8, 145, 178, 0.35)',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   note: {
     fontSize: 13,
-    color: '#fca5a5',
+    color: '#f59e0b',
     lineHeight: 20,
   },
 });

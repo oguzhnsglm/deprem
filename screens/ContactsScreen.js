@@ -242,17 +242,20 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 16,
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: '#f8fafc',
+    textAlign: 'center',
   },
   subtitle: {
     marginTop: 8,
     color: '#e5e7eb',
     lineHeight: 20,
     fontSize: 14,
+    textAlign: 'center',
   },
   list: {
     paddingBottom: 36,
@@ -277,7 +280,7 @@ const styles = StyleSheet.create({
   },
   alertEmpty: {
     marginTop: 10,
-    color: '#f87171',
+    color: '#f97316',
     fontWeight: '700',
   },
   alertRow: {
@@ -380,18 +383,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   segmentChipActive: {
-    backgroundColor: 'rgba(244, 114, 182, 0.18)',
-    borderColor: 'rgba(244, 114, 182, 0.6)',
+    backgroundColor: 'rgba(14, 165, 233, 0.18)',
+    borderColor: 'rgba(14, 165, 233, 0.6)',
   },
   segmentChipText: {
     color: '#f8fafc',
     fontWeight: '600',
   },
   segmentChipTextActive: {
-    color: '#f472b6',
+    color: '#f97316',
   },
   errorText: {
-    color: '#f87171',
+    color: '#f97316',
     fontSize: 13,
     marginTop: 2,
   },

@@ -3,19 +3,19 @@ import { Animated, SafeAreaView, StyleSheet } from 'react-native';
 
 const VARIANTS = {
   pink: {
-    background: ['#fff1f2', '#ffe4e6'],
-    blobTop: 'rgba(251, 207, 232, 0.6)',
-    blobBottom: 'rgba(254, 226, 226, 0.55)',
+    background: ['#130606', '#2b0b0b'],
+    blobTop: 'rgba(127, 29, 29, 0.35)',
+    blobBottom: 'rgba(69, 10, 10, 0.4)',
   },
   crimson: {
-    background: ['#1a0c12', '#3b0f18'],
-    blobTop: 'rgba(255, 76, 112, 0.28)',
-    blobBottom: 'rgba(120, 15, 40, 0.38)',
+    background: ['#090205', '#1b0a0f'],
+    blobTop: 'rgba(153, 27, 27, 0.3)',
+    blobBottom: 'rgba(76, 5, 25, 0.4)',
   },
   green: {
-    background: ['#c7f9cc', '#e8f8f5'],
-    blobTop: 'rgba(74, 222, 128, 0.35)',
-    blobBottom: 'rgba(187, 247, 208, 0.5)',
+    background: ['#140808', '#250d0d'],
+    blobTop: 'rgba(190, 18, 60, 0.35)',
+    blobBottom: 'rgba(67, 20, 7, 0.35)',
   },
 };
 

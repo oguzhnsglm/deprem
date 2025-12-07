@@ -22,8 +22,9 @@ const StackNavigator = () => {
     <Stack.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerStyle: { backgroundColor: '#f9a8d4' },
-        headerTintColor: '#831843',
+        animation: Platform.OS === 'android' ? 'slide_from_right' : 'slide_from_right',
+        headerStyle: { backgroundColor: '#450a0a' },
+        headerTintColor: '#f8fafc',
         headerTitleStyle: { fontWeight: '700', letterSpacing: 0.6 },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: 'transparent' },
@@ -40,10 +41,14 @@ const StackNavigator = () => {
       <Stack.Screen name="EmergencyStatus" component={EmergencyStatusScreen} options={{ title: 'Acil Durum' }} />
       <Stack.Screen name="Alert" component={AlertScreen} options={{ title: 'Durum Bildirimi' }} />
       <Stack.Screen name="Contacts" component={ContactsScreen} options={{ title: 'Acil Durum Kişileri' }} />
-      <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilim' }} />
-      <Stack.Screen name="EarthquakeFeed" component={EarthquakeFeedScreen} options={{ title: 'Deprem Akışı' }} />
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilim', headerBackVisible: false }} />
+      <Stack.Screen
+        name="EarthquakeFeed"
+        component={EarthquakeFeedScreen}
+        options={{ title: 'Deprem Akışı', headerBackVisible: false }}
+      />
       {Platform.OS !== 'web' && MapExplorerScreen && (
-        <Stack.Screen name="MapExplorer" component={MapExplorerScreen} options={{ title: 'Harita ve Risk' }} />
+        <Stack.Screen name="MapExplorer" component={MapExplorerScreen} options={{ title: 'Harita ve Risk', headerBackVisible: false }} />
       )}
     </Stack.Navigator>
   );

@@ -79,7 +79,7 @@ const EmergencyStatusScreen = ({ navigation }) => {
           <PrimaryButton
             title={'Yardıma ihtiyacım\nvar'}
             onPress={() => handleSelectStatus('Yardıma ihtiyacım var')}
-            colorScheme={{ start: '#ff5f6d', end: '#d7263d', shadow: '#7f1022', ripple: 'rgba(255, 255, 255, 0.35)' }}
+            colorScheme={{ start: '#f97316', end: '#dc2626', shadow: '#7f1d1d', ripple: 'rgba(249, 115, 22, 0.35)' }}
             style={styles.helpButton}
             textStyle={styles.helpButtonText}
           />
@@ -121,9 +121,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#7f1022',
+    backgroundColor: '#7f1d1d',
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: '#991b1b',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stepHighlight: {
-    color: '#f87171',
+    color: '#f97316',
     fontWeight: '800',
   },
   actions: {

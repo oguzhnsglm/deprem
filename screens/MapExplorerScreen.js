@@ -207,7 +207,7 @@ const MapExplorerScreen = () => {
               onLongPress={canPickPoint ? handleMapLongPress : undefined}
             >
               {selectedSoilPoint && (
-                <Marker coordinate={selectedSoilPoint} pinColor="#f472b6" title="Vs30 olcum noktasi" />
+                <Marker coordinate={selectedSoilPoint} pinColor="#dc2626" title="Vs30 olcum noktasi" />
               )}
             </MapView>
 
@@ -220,7 +220,7 @@ const MapExplorerScreen = () => {
                   </Text>
                 ) : vs30Loading ? (
                   <View style={styles.vs30Row}>
-                    <ActivityIndicator color="#f472b6" size="small" />
+                    <ActivityIndicator color="#f97316" size="small" />
                     <Text style={[styles.vs30Hint, { marginLeft: 10 }]}>Zemin verisi yukleniyor...</Text>
                   </View>
                 ) : vs30Info ? (
@@ -289,7 +289,7 @@ const MapExplorerScreen = () => {
 
             {locating && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="small" color="#f472b6" />
+                <ActivityIndicator size="small" color="#f97316" />
                 <Text style={styles.loadingText}>Konum aliniyor...</Text>
               </View>
             )}
@@ -403,24 +403,24 @@ const styles = StyleSheet.create({
   vs30Value: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#f472b6',
+    color: '#f97316',
   },
   vs30Unit: {
     color: '#f8fafc',
     marginLeft: 8,
   },
   vs30Coords: {
-    color: '#e0e7ff',
+    color: '#fef9c3',
     marginTop: 8,
     fontSize: 13,
   },
   vs30Hint: {
-    color: '#e0e7ff',
+    color: '#fef9c3',
     marginTop: 8,
     fontSize: 12,
   },
   vs30Error: {
-    color: '#f87171',
+    color: '#f97316',
     marginTop: 8,
     fontWeight: '700',
   },
@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: 'rgba(244, 114, 182, 0.2)',
+    backgroundColor: 'rgba(14, 165, 233, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(244, 114, 182, 0.6)',
+    borderColor: 'rgba(14, 165, 233, 0.6)',
   },
   vs30BadgeText: {
-    color: '#fdf2f8',
+    color: '#fde68a',
     fontWeight: '700',
   },
   faultCard: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   faultTitle: {
-    color: '#bfdbfe',
+    color: '#fcd34d',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
@@ -462,13 +462,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   faultDistance: {
-    color: '#e0f2fe',
+    color: '#fde68a',
     fontSize: 16,
     fontWeight: '700',
     marginTop: 12,
   },
   faultScore: {
-    color: '#bfdbfe',
+    color: '#fcd34d',
     marginTop: 8,
     fontSize: 14,
   },
@@ -479,21 +479,21 @@ const styles = StyleSheet.create({
   },
   faultScoreHint: {
     fontSize: 13,
-    color: '#e0f2fe',
+    color: '#fde68a',
   },
   faultHint: {
-    color: '#bfdbfe',
+    color: '#fcd34d',
     marginTop: 10,
     fontSize: 12,
   },
   faultNote: {
     marginTop: 8,
-    color: '#cbd5f5',
+    color: '#fef3c7',
     fontSize: 12,
   },
   faultError: {
     marginTop: 10,
-    color: '#f87171',
+    color: '#f97316',
     fontWeight: '700',
   },
   overlayNote: {

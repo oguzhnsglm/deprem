@@ -5,10 +5,10 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const COLOR_SCHEMES = {
   primary: {
-    start: '#f9a8d4',
-    end: '#ec4899',
-    shadow: '#9f1239',
-    ripple: 'rgba(255, 255, 255, 0.25)',
+    start: '#7f1d1d',
+    end: '#b91c1c',
+    shadow: '#450a0a',
+    ripple: 'rgba(248, 113, 113, 0.3)',
   },
   mint: {
     start: '#34d399',
@@ -17,10 +17,10 @@ const COLOR_SCHEMES = {
     ripple: 'rgba(255, 255, 255, 0.2)',
   },
   danger: {
-    start: '#fb7185',
-    end: '#dc2626',
-    shadow: '#7f1d1d',
-    ripple: 'rgba(252, 165, 165, 0.35)',
+    start: '#991b1b',
+    end: '#7f1d1d',
+    shadow: '#450a0a',
+    ripple: 'rgba(239, 68, 68, 0.4)',
   },
   location: {
     start: '#4ade80',
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 10,
     elevation: 6,
-    shadowColor: '#1f0a4e',
+    shadowColor: '#04121d',
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,
   },

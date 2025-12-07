@@ -222,18 +222,18 @@ const styles = StyleSheet.create({
   selectorArrow: {
     marginLeft: 12,
     fontSize: 30,
-    color: '#6b021a',
+    color: '#f97316',
     fontWeight: '900',
   },
   errorText: {
-    color: '#f87171',
+    color: '#f97316',
     marginBottom: 8,
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: 48,
+    paddingBottom: 160,
   },
   eventCard: {
     borderRadius: 22,
@@ -269,11 +269,11 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 13,
-    color: '#fca5a5',
+    color: '#f59e0b',
   },
   eventNote: {
     fontSize: 13,
-    color: '#9d174d',
+    color: '#f97316',
   },
   empty: {
     color: '#f8fafc',
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   },
   allHint: {
     fontSize: 12,
-    color: '#fca5a5',
+    color: '#f59e0b',
     marginBottom: 8,
   },
 });

@@ -34,11 +34,23 @@ const formatEventMeta = (event) => {
 
 const ActionButton = ({ label, onPress, variant = 'default' }) => (
   <TouchableOpacity
-    style={[styles.actionButton, variant === 'danger' && styles.actionButtonDanger]}
+    style={[
+      styles.actionButton,
+      variant === 'danger' && styles.actionButtonDanger,
+      variant === 'success' && styles.actionButtonSuccess,
+    ]}
     onPress={onPress}
     activeOpacity={0.85}
   >
-    <Text style={[styles.actionButtonText, variant === 'danger' && styles.actionButtonDangerText]}>{label}</Text>
+    <Text
+      style={[
+        styles.actionButtonText,
+        variant === 'danger' && styles.actionButtonDangerText,
+        variant === 'success' && styles.actionButtonSuccessText,
+      ]}
+    >
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -149,7 +161,10 @@ const HomeScreen = ({ navigation }) => {
           }
         >
           <View style={styles.card}>
-            <Text style={styles.appTitle}>Deprem Rehberi</Text>
+            <View style={styles.appTitleWrapper}>
+              <Text style={styles.appTitle}>Deprem Rehberi</Text>
+              <View style={styles.appTitleDivider} />
+            </View>
 
             <Text style={styles.sectionTitle}>Son Uyarılar</Text>
             <Text style={styles.sectionSubtitle}>
@@ -158,7 +173,7 @@ const HomeScreen = ({ navigation }) => {
 
             {isLoading ? (
               <View style={styles.loaderRow}>
-                <ActivityIndicator color="#f87171" />
+                <ActivityIndicator color="#f97316" />
                 <Text style={styles.loadingText}>Veriler güncelleniyor...</Text>
               </View>
             ) : (
@@ -190,37 +205,12 @@ const HomeScreen = ({ navigation }) => {
 
           <View style={styles.quickActions}>
             <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
-            <ActionButton label="Güvenli Alan Analizi" onPress={() => navigation.navigate('SafeSpot')} />
+            <ActionButton label="Güvenli Alan Analizi" variant="success" onPress={() => navigation.navigate('SafeSpot')} />
             <ActionButton label="Acil Durum" variant="danger" onPress={() => navigation.navigate('EmergencyStatus')} />
-            <ActionButton label="Acil Durum Kişileri" onPress={() => navigation.navigate('Contacts')} />
-            <ActionButton label="Deprem Geçmişi" onPress={() => navigation.navigate('EarthquakeFeed', { city })} />
+            <ActionButton label="Acil Durum Kişileri" variant="success" onPress={() => navigation.navigate('Contacts')} />
           </View>
         </ScrollView>
 
-        <View style={styles.bottomNavContainer}>
-          <View style={styles.bottomNav}>
-            <TouchableOpacity style={[styles.navItem, styles.navItemActive]} activeOpacity={0.85}>
-              <Text style={[styles.navIcon, styles.navIconActive]}>⌂</Text>
-              <Text style={[styles.navLabel, styles.navLabelActive]}>Ana Sayfa</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.navItem}
-              activeOpacity={0.85}
-              onPress={navigateToMap}
-            >
-              <Text style={styles.navIcon}>⌖</Text>
-              <Text style={styles.navLabel}>Harita</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.navItem}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <Text style={styles.navIcon}>◎</Text>
-              <Text style={styles.navLabel}>Profilim</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     </ScreenWrapper>
   );
@@ -235,7 +225,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 140,
+    paddingBottom: 180,
   },
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -248,7 +238,7 @@ const styles = StyleSheet.create({
     width: 360,
     height: 360,
     borderRadius: 260,
-    backgroundColor: 'rgba(255, 99, 132, 0.24)',
+    backgroundColor: 'rgba(14, 165, 233, 0.2)',
   },
   backgroundGlowBottom: {
     position: 'absolute',
@@ -272,11 +262,24 @@ const styles = StyleSheet.create({
     shadowRadius: 26,
     elevation: 14,
   },
+  appTitleWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   appTitle: {
     fontSize: 26,
     fontWeight: '800',
     color: '#f8fafc',
-    marginBottom: 12,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  appTitleDivider: {
+    width: 120,
+    height: 3,
+    marginTop: 8,
+    borderRadius: 999,
+    backgroundColor: '#c2410c',
   },
   sectionTitle: {
     fontSize: 20,
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   loadingText: {
-    color: '#fef2f2',
+    color: '#e2e8f0',
     fontSize: 13,
     marginLeft: 10,
   },
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#7f1022',
+    backgroundColor: '#7f1d1d',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -338,7 +341,7 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#f9fafb',
+    color: '#e2e8f0',
   },
   alertMeta: {
     fontSize: 12,
@@ -362,6 +365,7 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     marginTop: 22,
+    alignItems: 'center',
   },
   actionButton: {
     marginTop: 12,
@@ -377,12 +381,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 18,
     elevation: 12,
+    width: '85%',
   },
   actionButtonDanger: {
-    backgroundColor: '#a91c3a',
-    borderColor: '#f43f5e',
-    shadowColor: '#f43f5e',
+    backgroundColor: '#b91c1c',
+    borderColor: '#dc2626',
+    shadowColor: '#dc2626',
     shadowOpacity: 0.7,
+  },
+  actionButtonSuccess: {
+    backgroundColor: '#0f2a1d',
+    borderColor: '#16a34a',
+    shadowColor: '#16a34a',
+    shadowOpacity: 0.55,
+  },
+  actionButtonSuccessText: {
+    color: '#d1fae5',
   },
   actionButtonText: {
     color: '#f8fafc',
@@ -391,49 +405,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   actionButtonDangerText: {
-    color: '#fff7fb',
-  },
-  bottomNavContainer: {
-    paddingBottom: 10,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#0b0d10',
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#1f2933',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 16,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navItemActive: {
-    opacity: 1,
-  },
-  navIcon: {
-    color: '#e5e7eb',
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  navIconActive: {
-    color: '#f8fafc',
-  },
-  navLabel: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  navLabelActive: {
     color: '#f8fafc',
   },
 });

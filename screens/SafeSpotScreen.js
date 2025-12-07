@@ -152,14 +152,14 @@ const SafeSpotScreen = () => {
           <View style={styles.buttonRow}>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : '📷 Fotoğraf Çek'}
+                title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
                 onPress={handleAnalyzePhoto}
                 disabled={isAnalyzing}
               />
             </View>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : '🖼️ Galeriden Seç'}
+                title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
                 onPress={handlePickFromGallery}
                 disabled={isAnalyzing}
               />
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   photoText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#fca5a5',
+    color: '#f59e0b',
     marginBottom: 14,
   },
   photoHint: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: '#f59e0b',
   },
   errorTitle: {
     fontSize: 16,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.18)',
   },
   overlayLabel: {
-    color: '#1d4ed8',
+    color: '#f97316',
     fontWeight: '700',
     fontSize: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
