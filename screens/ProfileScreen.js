@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal, PanResponder } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import PROVINCES from '../logic/provinces';
 import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
+import { computeTabOrder } from '../navigation/tabOrder';
 
 const THRESHOLD_OPTIONS = [5, 6, 7];
 const CITY_OPTIONS = PROVINCES;
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   const storedPrefs = getProfilePreferences();
   const defaultCity = storedPrefs.city || CITY_OPTIONS[0] || 'İstanbul';
 
@@ -24,6 +25,38 @@ const ProfileScreen = () => {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        const horizontalSwipe = Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy) * 1.4;
+        return horizontalSwipe;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx } = gestureState;
+        const direction = dx <= -70 ? 'left' : dx >= 70 ? 'right' : null;
+        if (!direction) {
+          return;
+        }
+        const routeNames = navigation?.getState?.()?.routeNames || [];
+        const order = computeTabOrder(routeNames);
+        const currentIndex = order.indexOf('Profile');
+        if (currentIndex === -1) {
+          return;
+        }
+        const target = direction === 'left' ? order[currentIndex + 1] : order[currentIndex - 1];
+        if (!target) {
+          return;
+        }
+        if (target === 'EarthquakeFeed') {
+          navigation.navigate('EarthquakeFeed', { city: profile.city || defaultCity });
+          return;
+        }
+        navigation.navigate(target);
+      },
+    })
+  ).current;
 
   const handleInputChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
@@ -69,7 +102,8 @@ const ProfileScreen = () => {
 
   return (
     <ScreenWrapper>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <View style={styles.gestureWrapper} {...(swipeResponder?.panHandlers || {})}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -190,11 +224,15 @@ const ProfileScreen = () => {
           </View>
         </View>
       </Modal>
+      </View>
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
+  gestureWrapper: {
+    flex: 1,
+  },
   scroll: {
     padding: 24,
     paddingBottom: 160,

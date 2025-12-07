@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  PanResponder,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { getProfilePreferences } from '../logic/profileStore';
 import { ensureNotificationSetup } from '../logic/notificationService';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
+import { computeTabOrder } from '../navigation/tabOrder';
 
 const formatEventMeta = (event) => {
   const dateValue = event?.time ? new Date(event.time) : null;
@@ -136,19 +138,49 @@ const HomeScreen = ({ navigation }) => {
     loadRecentEvents({ silent: true });
   };
 
-  const navigateToMap = useCallback(() => {
-    const routeNames = navigation?.getState?.()?.routeNames || [];
-    if (routeNames.includes('MapExplorer')) {
-      navigation.navigate('MapExplorer');
-      return;
-    }
-    navigation.navigate('EarthquakeFeed', { city });
-  }, [city, navigation]);
+  const navigateByDirection = useCallback(
+    (direction) => {
+      const routeNames = navigation?.getState?.()?.routeNames || [];
+      const order = computeTabOrder(routeNames);
+      const currentIndex = order.indexOf('Home');
+      if (currentIndex === -1) {
+        return;
+      }
+      const target = direction === 'left' ? order[currentIndex + 1] : order[currentIndex - 1];
+      if (!target) {
+        return;
+      }
+      if (target === 'EarthquakeFeed') {
+        navigation.navigate('EarthquakeFeed', { city });
+        return;
+      }
+      navigation.navigate(target);
+    },
+    [city, navigation]
+  );
+
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        const horizontalSwipe = Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy) * 1.4;
+        return horizontalSwipe;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx } = gestureState;
+        if (dx <= -70) {
+          navigateByDirection('left');
+        } else if (dx >= 70) {
+          navigateByDirection('right');
+        }
+      },
+    })
+  ).current;
 
   return (
     <ScreenWrapper variant="crimson">
       <StatusBar barStyle="light-content" />
-      <View style={styles.root}>
+      <View style={styles.root} {...(swipeResponder?.panHandlers || {})}>
         <View style={styles.backgroundLayer}>
           <View style={styles.backgroundGlowTop} />
           <View style={styles.backgroundGlowBottom} />
@@ -269,7 +301,7 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#f8fafc',
     letterSpacing: 0.6,
     textAlign: 'center',
@@ -283,7 +315,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#f8fafc',
   },
   sectionSubtitle: {
@@ -340,7 +372,7 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#e2e8f0',
   },
   alertMeta: {
@@ -401,7 +433,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: '#f8fafc',
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
   actionButtonDangerText: {

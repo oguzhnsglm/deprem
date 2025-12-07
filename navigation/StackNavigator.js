@@ -21,13 +21,15 @@ const StackNavigator = () => {
   return (
     <Stack.Navigator
       initialRouteName="Home"
+      detachInactiveScreens={false}
       screenOptions={{
         animation: Platform.OS === 'android' ? 'slide_from_right' : 'slide_from_right',
         headerStyle: { backgroundColor: '#450a0a' },
         headerTintColor: '#f8fafc',
         headerTitleStyle: { fontWeight: '700', letterSpacing: 0.6 },
         headerShadowVisible: false,
-        contentStyle: { backgroundColor: 'transparent' },
+        contentStyle: { backgroundColor: '#0b0508' },
+        detachPreviousScreen: false,
       }}
     >
       <Stack.Screen

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,18 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
+  PanResponder,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PROVINCES from '../logic/provinces';
 import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
+import { computeTabOrder } from '../navigation/tabOrder';
 
 const ALL_CITIES_OPTION = 'Tum Sehirler';
 
-const EarthquakeFeedScreen = ({ route }) => {
+const EarthquakeFeedScreen = ({ route, navigation }) => {
   const profilePrefs = getProfilePreferences();
   const initialCity = route.params?.city || profilePrefs.city || 'Istanbul';
   const [selectedCity, setSelectedCity] = useState(initialCity);
@@ -69,9 +71,48 @@ const EarthquakeFeedScreen = ({ route }) => {
   const hadEvents = events.length > 0;
   const showAllCities = selectedCity === ALL_CITIES_OPTION;
 
+  const navigateByDirection = useCallback(
+    (direction) => {
+      const routeNames = navigation?.getState?.()?.routeNames || [];
+      const order = computeTabOrder(routeNames);
+      const currentIndex = order.indexOf('EarthquakeFeed');
+      if (currentIndex === -1) {
+        return;
+      }
+      const target = direction === 'left' ? order[currentIndex + 1] : order[currentIndex - 1];
+      if (!target) {
+        return;
+      }
+      if (target === 'EarthquakeFeed') {
+        navigation.navigate('EarthquakeFeed', { city: selectedCity });
+        return;
+      }
+      navigation.navigate(target);
+    },
+    [navigation, selectedCity]
+  );
+
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        const horizontalSwipe = Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy) * 1.4;
+        return horizontalSwipe;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx } = gestureState;
+        if (dx <= -70) {
+          navigateByDirection('left');
+        } else if (dx >= 70) {
+          navigateByDirection('right');
+        }
+      },
+    })
+  ).current;
+
   return (
     <ScreenWrapper>
-      <View style={styles.container}>
+      <View style={styles.container} {...(swipeResponder?.panHandlers || {})}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Deprem Gecmisi</Text>
           <TouchableOpacity onPress={handleRefresh} style={styles.refreshMiniButton} activeOpacity={0.8}>

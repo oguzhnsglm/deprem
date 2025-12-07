@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useRef } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const BottomNavBar = ({ activeTab = 'home', city, floating = false, navigation }) => {
   if (!navigation) {
@@ -9,6 +9,7 @@ const BottomNavBar = ({ activeTab = 'home', city, floating = false, navigation }
   const routeNames = navigation?.getState?.()?.routeNames || [];
   const hasMapExplorer = routeNames.includes('MapExplorer');
   const selectedCity = city || 'Istanbul';
+  const AnimatedTouchable = useMemo(() => Animated.createAnimatedComponent(TouchableOpacity), []);
 
   const handleNavigate = (key) => {
     if (!navigation) {
@@ -43,21 +44,54 @@ const BottomNavBar = ({ activeTab = 'home', city, floating = false, navigation }
     { key: 'profile', label: 'Profilim' },
   ];
 
+  const pressAnimations = useRef(
+    navItems.reduce((acc, item) => ({ ...acc, [item.key]: new Animated.Value(1) }), {})
+  ).current;
+
+  const animatePress = (key) => {
+    const anim = pressAnimations[key];
+    if (!anim) {
+      return;
+    }
+    anim.stopAnimation(() => {
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 0.94,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.spring(anim, {
+          toValue: 1,
+          friction: 5,
+          tension: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
+
+  const handlePress = (key) => {
+    animatePress(key);
+    handleNavigate(key);
+  };
+
   return (
     <View style={[styles.container, floating && styles.containerFloating]}>
       <View style={styles.bar}>
         {navItems.map((item) => {
           const isActive = activeTab === item.key;
+          const buttonClassName = `btn ${isActive ? 'btn--primary' : 'btn--ghost'}`;
+          const scale = pressAnimations[item.key] || 1;
           return (
-            <TouchableOpacity
+            <AnimatedTouchable
               key={item.key}
-              style={[styles.navItem, isActive && styles.navItemActive]}
+              className={buttonClassName}
+              style={[styles.navItem, isActive && styles.navItemActive, { transform: [{ scale }] }]}
               activeOpacity={0.85}
-              onPress={() => handleNavigate(item.key)}
+              onPress={() => handlePress(item.key)}
             >
               <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
-              {isActive ? <View style={styles.activeIndicator} /> : null}
-            </TouchableOpacity>
+            </AnimatedTouchable>
           );
         })}
       </View>
@@ -78,47 +112,52 @@ const styles = StyleSheet.create({
   },
   bar: {
     flexDirection: 'row',
-    backgroundColor: '#0b0d10',
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#1f2933',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 16,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    shadowColor: '#ff2f85',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
   },
   navItemActive: {
+    backgroundColor: '#ff2f85',
+    borderColor: '#ff5fa2',
+    shadowOpacity: 0.34,
     opacity: 1,
   },
   navLabel: {
     color: '#cbd5e1',
     fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontWeight: '500',
+    letterSpacing: 0.2,
     textTransform: 'uppercase',
     textAlign: 'center',
     lineHeight: 16,
   },
   navLabelActive: {
     color: '#f8fafc',
-  },
-  activeIndicator: {
-    marginTop: 4,
-    width: 26,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: '#f8fafc',
   },
 });
 

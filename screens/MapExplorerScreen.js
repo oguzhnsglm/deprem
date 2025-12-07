@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, PanResponder, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
+import { computeTabOrder } from '../navigation/tabOrder';
 
 let MapView = null;
 let Marker = null;
@@ -42,7 +43,7 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.2,
 };
 
-const MapExplorerScreen = () => {
+const MapExplorerScreen = ({ navigation }) => {
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
@@ -54,6 +55,7 @@ const MapExplorerScreen = () => {
   const [faultInfo, setFaultInfo] = useState(null);
   const [faultLoading, setFaultLoading] = useState(false);
   const [faultError, setFaultError] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const vs30ApiBaseRaw = process.env.EXPO_PUBLIC_VS30_API_BASE;
   const vs30ApiBase = typeof vs30ApiBaseRaw === 'string' && vs30ApiBaseRaw.length
@@ -110,6 +112,46 @@ const MapExplorerScreen = () => {
       syncLocation();
     }
   }, [syncLocation]);
+
+  const navigateByDirection = useCallback(
+    (direction) => {
+      const routeNames = navigation?.getState?.()?.routeNames || [];
+      const order = computeTabOrder(routeNames);
+      const currentIndex = order.indexOf('MapExplorer');
+      if (currentIndex === -1) {
+        return;
+      }
+      const target = direction === 'left' ? order[currentIndex + 1] : order[currentIndex - 1];
+      if (!target) {
+        return;
+      }
+      if (target === 'EarthquakeFeed') {
+        navigation.navigate('EarthquakeFeed');
+        return;
+      }
+      navigation.navigate(target);
+    },
+    [navigation]
+  );
+
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        const fromTop = evt.nativeEvent?.pageY <= 160;
+        const horizontalSwipe = Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy) * 1.4;
+        return fromTop && horizontalSwipe;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { dx } = gestureState;
+        if (dx <= -70) {
+          navigateByDirection('left');
+        } else if (dx >= 70) {
+          navigateByDirection('right');
+        }
+      },
+    })
+  ).current;
 
   const handleRegionChangeComplete = useCallback(
     (nextRegion) => {
@@ -193,7 +235,7 @@ const MapExplorerScreen = () => {
   }, [canPickPoint, selectedSoilPoint]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} {...(swipeResponder?.panHandlers || {})}>
       <View style={styles.mapContainer}>
         {MapView ? (
           <>
@@ -205,11 +247,18 @@ const MapExplorerScreen = () => {
               showsUserLocation={Boolean(userLocation)}
               showsPointsOfInterest={false}
               onLongPress={canPickPoint ? handleMapLongPress : undefined}
+              onMapReady={() => setMapReady(true)}
             >
               {selectedSoilPoint && (
-                <Marker coordinate={selectedSoilPoint} pinColor="#dc2626" title="Vs30 olcum noktasi" />
+                <Marker coordinate={selectedSoilPoint} pinColor="#f472b6" title="Vs30 olcum noktasi" />
               )}
             </MapView>
+            {!mapReady ? (
+              <View style={styles.mapPlaceholder} pointerEvents="none">
+                <ActivityIndicator color="#f8fafc" />
+                <Text style={styles.mapPlaceholderText}>Harita yukleniyor...</Text>
+              </View>
+            ) : null}
 
             <View style={styles.overlayStack}>
               <View style={styles.vs30Card}>
@@ -220,7 +269,7 @@ const MapExplorerScreen = () => {
                   </Text>
                 ) : vs30Loading ? (
                   <View style={styles.vs30Row}>
-                    <ActivityIndicator color="#f97316" size="small" />
+                    <ActivityIndicator color="#f472b6" size="small" />
                     <Text style={[styles.vs30Hint, { marginLeft: 10 }]}>Zemin verisi yukleniyor...</Text>
                   </View>
                 ) : vs30Info ? (
@@ -289,7 +338,7 @@ const MapExplorerScreen = () => {
 
             {locating && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="small" color="#f97316" />
+                <ActivityIndicator size="small" color="#f472b6" />
                 <Text style={styles.loadingText}>Konum aliniyor...</Text>
               </View>
             )}
@@ -338,6 +387,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#cbd5e1',
     lineHeight: 20,
+  },
+  mapPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(12, 6, 8, 0.92)',
+  },
+  mapPlaceholderText: {
+    color: '#e2e8f0',
+    marginTop: 10,
+    fontWeight: '600',
   },
   overlayStack: {
     position: 'absolute',
@@ -403,24 +463,24 @@ const styles = StyleSheet.create({
   vs30Value: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#f97316',
+    color: '#f472b6',
   },
   vs30Unit: {
     color: '#f8fafc',
     marginLeft: 8,
   },
   vs30Coords: {
-    color: '#fef9c3',
+    color: '#e0e7ff',
     marginTop: 8,
     fontSize: 13,
   },
   vs30Hint: {
-    color: '#fef9c3',
+    color: '#e0e7ff',
     marginTop: 8,
     fontSize: 12,
   },
   vs30Error: {
-    color: '#f97316',
+    color: '#f87171',
     marginTop: 8,
     fontWeight: '700',
   },
@@ -429,12 +489,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
+    backgroundColor: 'rgba(244, 114, 182, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(14, 165, 233, 0.6)',
+    borderColor: 'rgba(244, 114, 182, 0.6)',
   },
   vs30BadgeText: {
-    color: '#fde68a',
+    color: '#fdf2f8',
     fontWeight: '700',
   },
   faultCard: {
@@ -450,7 +510,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   faultTitle: {
-    color: '#fcd34d',
+    color: '#bfdbfe',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
@@ -462,13 +522,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   faultDistance: {
-    color: '#fde68a',
+    color: '#e0f2fe',
     fontSize: 16,
     fontWeight: '700',
     marginTop: 12,
   },
   faultScore: {
-    color: '#fcd34d',
+    color: '#bfdbfe',
     marginTop: 8,
     fontSize: 14,
   },
@@ -479,21 +539,21 @@ const styles = StyleSheet.create({
   },
   faultScoreHint: {
     fontSize: 13,
-    color: '#fde68a',
+    color: '#e0f2fe',
   },
   faultHint: {
-    color: '#fcd34d',
+    color: '#bfdbfe',
     marginTop: 10,
     fontSize: 12,
   },
   faultNote: {
     marginTop: 8,
-    color: '#fef3c7',
+    color: '#cbd5f5',
     fontSize: 12,
   },
   faultError: {
     marginTop: 10,
-    color: '#f97316',
+    color: '#f87171',
     fontWeight: '700',
   },
   overlayNote: {

@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { StatusBar, View } from 'react-native';
+import { Platform, StatusBar, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import StackNavigator from './navigation/StackNavigator';
 import BottomNavBar from './components/BottomNavBar';
 import { getProfilePreferences } from './logic/profileStore';
+
+if (Platform.OS === 'web') {
+  require('./src/styles/globals.css');
+}
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -46,7 +50,7 @@ export default function App() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#0b0508' }}>
       <StatusBar barStyle="light-content" />
       <NavigationContainer theme={navigationTheme} ref={navigationRef} onReady={handleNavReady} onStateChange={handleStateChange}>
         <StackNavigator />

@@ -81,11 +81,13 @@ const ScreenWrapper = ({ children, variant = 'crimson' }) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#0b0508',
   },
   safeArea: {
     flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 24,
+    backgroundColor: 'transparent',
   },
   blobTop: {
     position: 'absolute',
