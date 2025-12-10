@@ -80,17 +80,16 @@ const BottomNavBar = ({ activeTab = 'home', city, floating = false, navigation }
       <View style={styles.bar}>
         {navItems.map((item) => {
           const isActive = activeTab === item.key;
-          const buttonClassName = `btn ${isActive ? 'btn--primary' : 'btn--ghost'}`;
           const scale = pressAnimations[item.key] || 1;
           return (
             <AnimatedTouchable
               key={item.key}
-              className={buttonClassName}
               style={[styles.navItem, isActive && styles.navItemActive, { transform: [{ scale }] }]}
               activeOpacity={0.85}
               onPress={() => handlePress(item.key)}
             >
               <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
+              {isActive ? <View style={styles.underline} /> : null}
             </AnimatedTouchable>
           );
         })}
@@ -112,52 +111,55 @@ const styles = StyleSheet.create({
   },
   bar: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 0,
+    backgroundColor: 'rgba(12, 8, 18, 0.65)',
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    marginHorizontal: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    shadowColor: '#ff2f85',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
+    marginHorizontal: 6,
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   navItemActive: {
-    backgroundColor: '#ff2f85',
-    borderColor: '#ff5fa2',
-    shadowOpacity: 0.34,
     opacity: 1,
   },
   navLabel: {
-    color: '#cbd5e1',
+    color: '#d8dce9',
     fontSize: 13,
     fontWeight: '500',
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
     textTransform: 'uppercase',
     textAlign: 'center',
     lineHeight: 16,
   },
   navLabelActive: {
     color: '#f8fafc',
+  },
+  underline: {
+    marginTop: 6,
+    width: 24,
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: '#f8fafc',
   },
 });
 

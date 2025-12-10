@@ -26,6 +26,17 @@ const describeSoilStrength = (vs30) => {
   return 'Cok yumusak/gevsek zemin; dalgalari kuvvetle buyutur, sivilasmas riski artar.';
 };
 
+const fetchWithTimeout = async (url, { timeoutMs = 8000, ...options } = {}) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 try {
   if (isNativePlatform) {
     const Maps = require('react-native-maps');
@@ -191,7 +202,7 @@ const MapExplorerScreen = ({ navigation }) => {
 
     if (vs30Available) {
       try {
-        const response = await fetch(`${vs30ApiBase}/vs30?${searchParams.toString()}`);
+        const response = await fetchWithTimeout(`${vs30ApiBase}/vs30?${searchParams.toString()}`, { timeoutMs: 8000 });
         if (!response.ok) {
           throw new Error(`VS30 API error ${response.status}`);
         }
@@ -200,7 +211,7 @@ const MapExplorerScreen = ({ navigation }) => {
       } catch (error) {
         console.warn('[MapExplorer] Vs30 fetch failed', error);
         setVs30Info(null);
-        setVs30Error('Vs30 verisi alinmadi.');
+        setVs30Error(error?.name === 'AbortError' ? 'Vs30 servisi zaman asimina ugradi.' : 'Vs30 verisi alinmadi.');
       } finally {
         setVs30Loading(false);
       }
@@ -208,7 +219,10 @@ const MapExplorerScreen = ({ navigation }) => {
 
     if (faultAvailable) {
       try {
-        const response = await fetch(`${faultApiBase}/api/fault-distance?${searchParams.toString()}`);
+        const response = await fetchWithTimeout(
+          `${faultApiBase}/api/fault-distance?${searchParams.toString()}`,
+          { timeoutMs: 8000 }
+        );
         if (!response.ok) {
           throw new Error(`Fault API error ${response.status}`);
         }
@@ -217,7 +231,7 @@ const MapExplorerScreen = ({ navigation }) => {
       } catch (error) {
         console.warn('[MapExplorer] Fault fetch failed', error);
         setFaultInfo(null);
-        setFaultError('Fay verisine ulasilamadi.');
+        setFaultError(error?.name === 'AbortError' ? 'Fay servisi zaman asimina ugradi.' : 'Fay verisine ulasilamadi.');
       } finally {
         setFaultLoading(false);
       }
