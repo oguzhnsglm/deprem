@@ -138,6 +138,83 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const isWithinBounds = (latitude, longitude) => {
+  if (latitude === null || longitude === null || latitude === undefined || longitude === undefined) {
+    return true;
+  }
+  return (
+    latitude >= TURKEY_BOUNDS.minLat - 1 &&
+    latitude <= TURKEY_BOUNDS.maxLat + 1 &&
+    longitude >= TURKEY_BOUNDS.minLon - 1 &&
+    longitude <= TURKEY_BOUNDS.maxLon + 1
+  );
+};
+
+const pickLocationText = (event = {}) => {
+  const candidates = [event.location, event.district, event.city, event.province, event.flynnRegion];
+  for (const candidate of candidates) {
+    if (candidate && String(candidate).trim().length > 2) {
+      return String(candidate).trim();
+    }
+  }
+  return null;
+};
+
+const sanitizeMagnitude = (value) => {
+  const numeric = parseNumber(value);
+  return numeric === null ? null : Number(numeric.toFixed(1));
+};
+
+const sanitizeEvent = (event = {}) => {
+  const latitude = parseNumber(event.latitude);
+  const longitude = parseNumber(event.longitude);
+  const magnitude = sanitizeMagnitude(event.magnitude);
+  const isoTime = ensureIsoString(event.time || event.date);
+  return {
+    ...event,
+    id: event.id || `${event.source || 'Bilinmeyen'}-${isoTime || Date.now()}`,
+    source: event.source ? String(event.source).toUpperCase() : 'BİLİNMEYEN',
+    latitude,
+    longitude,
+    magnitude,
+    time: isoTime,
+    location: pickLocationText(event) || 'Konum doğrulanamadı',
+  };
+};
+
+const filterTrustedEvents = (events = []) =>
+  events
+    .map((event) => sanitizeEvent(event))
+    .filter((event) => {
+      const hasRequiredFields =
+        Boolean(event.id) &&
+        Boolean(event.source) &&
+        Boolean(event.time) &&
+        event.magnitude !== null &&
+        Boolean(event.location);
+
+      if (!hasRequiredFields) {
+        return false;
+      }
+
+      const coordsProvided = event.latitude !== null && event.longitude !== null;
+      return !coordsProvided || isWithinBounds(event.latitude, event.longitude);
+    });
+
+const buildVerificationDetails = ({
+  aggregatedCount = 0,
+  filteredCount = 0,
+  deliveredCount = 0,
+  requestedCity = '',
+} = {}) => ({
+  checkedAt: new Date().toISOString(),
+  totalFetched: aggregatedCount,
+  cityFilteredCount: filteredCount,
+  deliveredCount,
+  rejectedCount: Math.max(filteredCount - deliveredCount, 0),
+  requestedCity: requestedCity || null,
+});
+
 const safeReadText = async (response) => {
   try {
     return await response.text();
@@ -455,11 +532,19 @@ export const fetchCityEarthquakes = async ({
   const filteredEvents = normalizedCity
     ? aggregated.events.filter((event) => matchesCity(event, normalizedCity))
     : aggregated.events;
+  const trustedEvents = filterTrustedEvents(filteredEvents);
+  const verification = buildVerificationDetails({
+    aggregatedCount: aggregated.events.length,
+    filteredCount: filteredEvents.length,
+    deliveredCount: trustedEvents.length,
+    requestedCity: city,
+  });
 
   return {
-    events: filteredEvents,
+    events: trustedEvents,
     usedFallback: false,
     sourceMeta: aggregated.sourceMeta,
+    verification,
   };
 };
 

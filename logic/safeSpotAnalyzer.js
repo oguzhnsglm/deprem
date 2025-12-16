@@ -99,16 +99,19 @@ const normalizeBounds = (bounds = {}) => {
 
 const normalizeSafeZones = (safeZones = []) =>
   safeZones
-    .map((zone, index) => ({
-      id: zone.id ?? `zone-${index}`,
-      label: zone.label ?? 'Güvenli Alan',
-      guidance:
-        zone.guidance ??
-        'Dayanıklı bir mobilya yanına çök-kapan-tutun pozisyonuyla yerleş.',
-      confidence: Number(zone.confidence ?? 0.5),
-      bounds: normalizeBounds(zone.bounds),
-    }))
-    .filter((zone) => zone.bounds.width > 0 && zone.bounds.height > 0);
+    .map((zone, index) => {
+      const hasBounds = zone.bounds && typeof zone.bounds === 'object';
+      return {
+        id: zone.id ?? `zone-${index}`,
+        label: zone.label ?? 'Güvenli Alan',
+        guidance:
+          zone.guidance ??
+          'Dayanıklı bir mobilya yanına çök-kapan-tutun pozisyonuyla yerleş.',
+        confidence: Number(zone.confidence ?? 0.5),
+        bounds: hasBounds ? normalizeBounds(zone.bounds) : null,
+      };
+    })
+    .filter((zone) => !zone.bounds || (zone.bounds.width > 0 && zone.bounds.height > 0));
 
 const normalizeRisks = (risks = []) =>
   risks.map((risk, index) => ({
@@ -144,100 +147,60 @@ const RISK_DETAILS = [
   'Elektrik kabloları ve prizlerin yanına diz çökme.',
 ];
 
-const pseudoRandom = (seedSource = '', salt = 0) => {
-  if (!seedSource) {
-    return Math.random();
-  }
-  const source = `${seedSource}:${salt}`;
-  let hash = 0;
-  for (let i = 0; i < source.length; i += 1) {
-    hash = (hash * 31 + source.charCodeAt(i)) % 1000000;
-  }
-  return hash / 1000000;
-};
+const SAMPLE_SAFE_ZONE_GUIDES = [
+  {
+    id: 'guide-sturdy-furniture',
+    label: 'Örnek: Sabit mobilya yanında pozisyon al',
+    guidance:
+      'Çök-kapan-tutun pozisyonunu devrilmeyecek masa, çalışma masası veya komodin yanında uygula.',
+  },
+  {
+    id: 'guide-door-frame',
+    label: 'Örnek: Taşıyıcı duvar/kapı kasası kenarı',
+    guidance:
+      'Kapı kasası gibi taşıyıcı bir duvar köşesinde dizlerinin üzerine çök ve başını kollarınla koru.',
+  },
+  {
+    id: 'guide-low-furniture',
+    label: 'Örnek: Alçak ve sabit koltuk/kanepe yanı',
+    guidance:
+      'Alçak bir koltuk veya kanepe minderinin yanında kalıp hareketli eşyalardan uzak dur.',
+  },
+];
 
-const generateHeuristicZones = (seedSource) => {
-  const zoneCount = 1 + Math.floor(pseudoRandom(seedSource, 11) * 3);
-  return Array.from({ length: zoneCount }).map((_, index) => {
-    const width = 0.22 + pseudoRandom(seedSource, index * 5 + 1) * 0.4;
-    const height = 0.18 + pseudoRandom(seedSource, index * 5 + 2) * 0.38;
-    const x = clamp01(pseudoRandom(seedSource, index * 5 + 3) * (1 - width));
-    const y = clamp01(pseudoRandom(seedSource, index * 5 + 4) * (1 - height));
+const SAMPLE_RISK_GUIDES = [
+  {
+    id: 'risk-windows',
+    label: 'Pencere ve cam yüzeyler',
+    detail: 'Cam kırılması riskine karşı 1-2 metre uzak kal.',
+  },
+  {
+    id: 'risk-wardrobe',
+    label: 'Sabitlenmemiş dolaplar',
+    detail: 'Devrilebilecek yüksek mobilyaların önünü boş tut ve yanına yaklaşma.',
+  },
+  {
+    id: 'risk-lighting',
+    label: 'Aydınlatma elemanları',
+    detail: 'Sallanabilecek avize veya lambaların altında bekleme.',
+  },
+];
 
-    const label = SAFE_ZONE_LABELS[index % SAFE_ZONE_LABELS.length];
-    const guidance = SAFE_ZONE_GUIDANCE[index % SAFE_ZONE_GUIDANCE.length];
-    const confidence = 0.35 + pseudoRandom(seedSource, index * 5 + 5) * 0.55;
-
-    return {
-      id: `heuristic-zone-${index}`,
-      label,
-      guidance,
-      confidence,
-      bounds: { x, y, width, height },
-    };
-  });
-};
-
-const generateHeuristicRisks = (seedSource) => {
-  const riskCount = 1 + Math.floor(pseudoRandom(seedSource, 101) * 3);
-  return Array.from({ length: riskCount }).map((_, index) => ({
-    id: `heuristic-risk-${index}`,
-    label: RISK_LABELS[(index + 1) % RISK_LABELS.length],
-    detail: RISK_DETAILS[(index + 2) % RISK_DETAILS.length],
-  }));
-};
-
-const fallbackAnalysis = (reason, { base64Image } = {}) => {
-  if (base64Image) {
-    const safeZones = normalizeSafeZones(generateHeuristicZones(base64Image));
-    const risks = normalizeRisks(generateHeuristicRisks(base64Image));
-    const primaryZone = safeZones[0]?.label ?? 'sabit bir mobilya';
-    const primaryRisk = risks[0]?.label ?? 'cam yüzeyler';
-
-    return {
-      summary: `Fotoğraftaki ${primaryZone.toLowerCase()} yakınında çök-kapan-tutun pozisyonu al, ${primaryRisk.toLowerCase()} bölgesinden uzak kal.`,
-      safeZones,
-      risks,
-      source: reason === 'missing-key' ? 'fallback-missing-key' : 'fallback-error',
-    };
-  }
+const fallbackAnalysis = (reason) => {
+  const notice =
+    reason === 'missing-key'
+      ? 'Yapay zeka anahtarı tanımlı olmadığı için fotoğraf analiz edilemedi. Aşağıdaki rehber gerçek odana ait değildir.'
+      : 'Fotoğraf analiz edilirken sorun oluştu. Aşağıdaki rehber genel deprem güvenlik prensiplerini hatırlatır.';
 
   return {
     summary:
-      reason === 'missing-key'
-        ? 'Yapay zeka anahtarı eksik olduğu için örnek güvenli alan önerileri gösteriliyor.'
-        : 'Fotoğraf analiz edilirken sorun oluştu; aşağıdaki öneriler deprem güvenlik rehberlerine dayanan örneklerdir.',
-    safeZones: normalizeSafeZones([
-      {
-        id: 'table-zone',
-        label: 'Masa Yanı',
-        confidence: 0.42,
-        guidance:
-          'Masanın bir ayağına yakın şekilde dizlerinin üzerine çök, başını kolunla koru ve masaya tutun.',
-        bounds: { x: 0.18, y: 0.52, width: 0.46, height: 0.32 },
-      },
-      {
-        id: 'sofa-corner',
-        label: 'Kanepenin Sağlam Köşesi',
-        confidence: 0.37,
-        guidance:
-          'Köşe minderine yakın konumlan, dizlerini büküp hedef pozisyona geç, hareketli objelerden uzak dur.',
-        bounds: { x: 0.62, y: 0.35, width: 0.28, height: 0.28 },
-      },
-    ]),
-    risks: normalizeRisks([
-      {
-        id: 'window',
-        label: 'Pencere / Cam Yüzey',
-        detail: 'Cam kırılması riskine karşı 1-2 metre uzakta kal.',
-      },
-      {
-        id: 'wardrobe',
-        label: 'Sabitlenmemiş Dolap',
-        detail: 'Dolap devrilmesine karşı yanına yaklaşma.',
-      },
-    ]),
-    source: 'fallback',
+      'Fotoğraf üzerinde gerçek zamanlı güvenli alan belirlenemedi. Çök-kapan-tutun tekniğini sabit ve devrilmeyecek mobilyalar yanında uygulayıp pencerelerden uzak dur.',
+    notice,
+    safeZones: normalizeSafeZones(
+      SAMPLE_SAFE_ZONE_GUIDES.map((guide) => ({ ...guide, confidence: 0.3, bounds: null }))
+    ),
+    risks: normalizeRisks(SAMPLE_RISK_GUIDES),
+    source: reason === 'missing-key' ? 'fallback-missing-key' : 'fallback-error',
   };
 };
 
@@ -502,7 +465,7 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
     base64Image = await readImageAsBase64(photoUri);
 
     if (!API_KEY) {
-      return fallbackAnalysis('missing-key', { base64Image });
+      return fallbackAnalysis('missing-key');
     }
 
     const body = isGeminiProvider
@@ -547,7 +510,7 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
       message: error?.message,
       stack: error?.stack,
     });
-    return fallbackAnalysis('error', { base64Image });
+    return fallbackAnalysis('error');
   }
 };
 
@@ -572,14 +535,14 @@ export const analyzeSafeSpotPhotoWithBothProviders = async (photoUri) => {
     } catch (error) {
       console.warn('[OpenAI] Analiz başarısız:', error.message);
       results.openai = {
-        ...fallbackAnalysis('error', { base64Image }),
+        ...fallbackAnalysis('error'),
         provider: 'OpenAI GPT-4',
         error: error.message,
       };
     }
   } else {
     results.openai = {
-      ...fallbackAnalysis('missing-key', { base64Image }),
+      ...fallbackAnalysis('missing-key'),
       provider: 'OpenAI GPT-4',
       error: 'API anahtarı bulunamadı',
     };
@@ -593,14 +556,14 @@ export const analyzeSafeSpotPhotoWithBothProviders = async (photoUri) => {
     } catch (error) {
       console.warn('[Gemini] Analiz başarısız:', error.message);
       results.gemini = {
-        ...fallbackAnalysis('error', { base64Image }),
+        ...fallbackAnalysis('error'),
         provider: 'Google Gemini',
         error: error.message,
       };
     }
   } else {
     results.gemini = {
-      ...fallbackAnalysis('missing-key', { base64Image }),
+      ...fallbackAnalysis('missing-key'),
       provider: 'Google Gemini',
       error: 'API anahtarı bulunamadı',
     };

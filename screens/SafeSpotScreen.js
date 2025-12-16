@@ -13,6 +13,10 @@ const SafeSpotScreen = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const openAiAnalysis = analyses.openai;
+  const geminiAnalysis = analyses.gemini;
+  const openAiIsAi = openAiAnalysis?.source === 'ai';
+  const geminiIsAi = geminiAnalysis?.source === 'ai';
 
   const advice = useMemo(
     () => analyses.openai?.summary ?? analyses.gemini?.summary ?? getMockSafeSpotAdvice(),
@@ -129,12 +133,17 @@ const SafeSpotScreen = () => {
     }
   };
 
-  const overlayStyle = (bounds) => ({
-    left: `${bounds.x * 100}%`,
-    top: `${bounds.y * 100}%`,
-    width: `${bounds.width * 100}%`,
-    height: `${bounds.height * 100}%`,
-  });
+  const overlayStyle = (bounds) => {
+    if (!bounds) {
+      return {};
+    }
+    return {
+      left: `${bounds.x * 100}%`,
+      top: `${bounds.y * 100}%`,
+      width: `${bounds.width * 100}%`,
+      height: `${bounds.height * 100}%`,
+    };
+  };
 
   return (
     <ScreenWrapper>
@@ -178,50 +187,64 @@ const SafeSpotScreen = () => {
         {capturedPhoto && (
           <View>
             {/* OpenAI Analiz Sonucu */}
-            {analyses.openai && (
+            {openAiAnalysis && (
               <View style={styles.previewCard}>
                 <View style={styles.providerHeader}>
-                  <Text style={styles.providerTitle}>{analyses.openai.provider || 'OpenAI GPT-4'}</Text>
-                  {analyses.openai.error && (
+                  <Text style={styles.providerTitle}>{openAiAnalysis.provider || 'OpenAI GPT-4'}</Text>
+                  {openAiAnalysis.error && (
                     <View style={styles.errorBox}>
                       <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
-                      <Text style={styles.providerError}>{analyses.openai.error}</Text>
+                      <Text style={styles.providerError}>{openAiAnalysis.error}</Text>
                     </View>
                   )}
                 </View>
+                {!openAiIsAi && openAiAnalysis.notice ? (
+                  <View style={styles.noticeBox}>
+                    <Text style={styles.noticeText}>{openAiAnalysis.notice}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.imageWrapper}>
                   <Image 
                     source={{ uri: capturedPhoto }} 
                     style={styles.previewImage}
                     resizeMode="cover"
                   />
-                  {analyses.openai.safeZones?.map((zone) => (
-                    <View key={zone.id} style={[styles.overlayBox, overlayStyle(zone.bounds)]}>
-                      <Text style={styles.overlayLabel}>{zone.label}</Text>
-                    </View>
-                  ))}
+                  {openAiIsAi &&
+                    openAiAnalysis.safeZones?.map((zone) =>
+                      zone.bounds ? (
+                        <View key={zone.id} style={[styles.overlayBox, overlayStyle(zone.bounds)]}>
+                          <Text style={styles.overlayLabel}>{zone.label}</Text>
+                        </View>
+                      ) : null
+                    )}
                 </View>
 
-                {analyses.openai.safeZones?.length ? (
+                {openAiAnalysis.safeZones?.length ? (
                   <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Önerilen güvenli alanlar</Text>
-                    {analyses.openai.safeZones.map((zone) => (
+                    <Text style={styles.sectionTitle}>
+                      {openAiIsAi ? 'Önerilen güvenli alanlar' : 'Genel güvenli alan rehberi'}
+                    </Text>
+                    {openAiAnalysis.safeZones.map((zone) => (
                       <View key={zone.id} style={styles.zoneRow}>
                         <View style={styles.zoneBadge} />
                         <View style={styles.zoneTextWrapper}>
                           <Text style={styles.zoneLabel}>{zone.label}</Text>
                           <Text style={styles.zoneGuidance}>{zone.guidance}</Text>
                         </View>
-                        <Text style={styles.zoneConfidence}>{Math.round(zone.confidence * 100)}%</Text>
+                        {openAiIsAi ? (
+                          <Text style={styles.zoneConfidence}>{Math.round(zone.confidence * 100)}%</Text>
+                        ) : null}
                       </View>
                     ))}
                   </View>
                 ) : null}
 
-                {analyses.openai.risks?.length ? (
+                {openAiAnalysis.risks?.length ? (
                   <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Dikkat edilecek bölgeler</Text>
-                    {analyses.openai.risks.map((risk) => (
+                    <Text style={styles.sectionTitle}>
+                      {openAiIsAi ? 'Dikkat edilecek bölgeler' : 'Genel risk uyarıları'}
+                    </Text>
+                    {openAiAnalysis.risks.map((risk) => (
                       <View key={risk.id} style={styles.riskRow}>
                         <Text style={styles.riskLabel}>{risk.label}</Text>
                         <Text style={styles.riskDetail}>{risk.detail}</Text>
@@ -233,50 +256,67 @@ const SafeSpotScreen = () => {
             )}
 
             {/* Gemini Analiz Sonucu */}
-            {analyses.gemini && (
+            {geminiAnalysis && (
               <View style={styles.previewCard}>
                 <View style={styles.providerHeader}>
-                  <Text style={styles.providerTitle}>{analyses.gemini.provider || 'Google Gemini'}</Text>
-                  {analyses.gemini.error && (
+                  <Text style={styles.providerTitle}>{geminiAnalysis.provider || 'Google Gemini'}</Text>
+                  {geminiAnalysis.error && (
                     <View style={styles.errorBox}>
                       <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
-                      <Text style={styles.providerError}>{analyses.gemini.error}</Text>
+                      <Text style={styles.providerError}>{geminiAnalysis.error}</Text>
                     </View>
                   )}
                 </View>
+                {!geminiIsAi && geminiAnalysis.notice ? (
+                  <View style={styles.noticeBox}>
+                    <Text style={styles.noticeText}>{geminiAnalysis.notice}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.imageWrapper}>
                   <Image 
                     source={{ uri: capturedPhoto }} 
                     style={styles.previewImage}
                     resizeMode="cover"
                   />
-                  {analyses.gemini.safeZones?.map((zone) => (
-                    <View key={zone.id} style={[styles.overlayBox, styles.geminiOverlay, overlayStyle(zone.bounds)]}>
-                      <Text style={styles.overlayLabel}>{zone.label}</Text>
-                    </View>
-                  ))}
+                  {geminiIsAi &&
+                    geminiAnalysis.safeZones?.map((zone) =>
+                      zone.bounds ? (
+                        <View
+                          key={zone.id}
+                          style={[styles.overlayBox, styles.geminiOverlay, overlayStyle(zone.bounds)]}
+                        >
+                          <Text style={styles.overlayLabel}>{zone.label}</Text>
+                        </View>
+                      ) : null
+                    )}
                 </View>
 
-                {analyses.gemini.safeZones?.length ? (
+                {geminiAnalysis.safeZones?.length ? (
                   <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Önerilen güvenli alanlar</Text>
-                    {analyses.gemini.safeZones.map((zone) => (
+                    <Text style={styles.sectionTitle}>
+                      {geminiIsAi ? 'Önerilen güvenli alanlar' : 'Genel güvenli alan rehberi'}
+                    </Text>
+                    {geminiAnalysis.safeZones.map((zone) => (
                       <View key={zone.id} style={styles.zoneRow}>
                         <View style={styles.zoneBadge} />
                         <View style={styles.zoneTextWrapper}>
                           <Text style={styles.zoneLabel}>{zone.label}</Text>
                           <Text style={styles.zoneGuidance}>{zone.guidance}</Text>
                         </View>
-                        <Text style={styles.zoneConfidence}>{Math.round(zone.confidence * 100)}%</Text>
+                        {geminiIsAi ? (
+                          <Text style={styles.zoneConfidence}>{Math.round(zone.confidence * 100)}%</Text>
+                        ) : null}
                       </View>
                     ))}
                   </View>
                 ) : null}
 
-                {analyses.gemini.risks?.length ? (
+                {geminiAnalysis.risks?.length ? (
                   <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Dikkat edilecek bölgeler</Text>
-                    {analyses.gemini.risks.map((risk) => (
+                    <Text style={styles.sectionTitle}>
+                      {geminiIsAi ? 'Dikkat edilecek bölgeler' : 'Genel risk uyarıları'}
+                    </Text>
+                    {geminiAnalysis.risks.map((risk) => (
                       <View key={risk.id} style={styles.riskRow}>
                         <Text style={styles.riskLabel}>{risk.label}</Text>
                         <Text style={styles.riskDetail}>{risk.detail}</Text>
@@ -408,6 +448,19 @@ const styles = StyleSheet.create({
   providerError: {
     fontSize: 14,
     color: '#7f1d1d',
+    lineHeight: 20,
+  },
+  noticeBox: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    marginBottom: 12,
+  },
+  noticeText: {
+    fontSize: 14,
+    color: '#92400e',
     lineHeight: 20,
   },
   overlayBox: {

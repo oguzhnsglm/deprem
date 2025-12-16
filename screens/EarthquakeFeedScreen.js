@@ -25,6 +25,8 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
   const [selectedCity, setSelectedCity] = useState(initialCity);
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [events, setEvents] = useState([]);
+  const [sourceMeta, setSourceMeta] = useState([]);
+  const [verificationInfo, setVerificationInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastError, setLastError] = useState('');
@@ -46,8 +48,12 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
           minMagnitude: 1.2,
         });
         setEvents(result.events || []);
+        setSourceMeta(result.sourceMeta || []);
+        setVerificationInfo(result.verification || null);
       } catch (error) {
         setEvents([]);
+        setSourceMeta([]);
+        setVerificationInfo(null);
         setLastError(error?.message || 'Veri yüklenemedi.');
       } finally {
         if (silent) {
@@ -70,6 +76,11 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
 
   const hadEvents = events.length > 0;
   const showAllCities = selectedCity === ALL_CITIES_OPTION;
+  const verifiedAtText = verificationInfo?.checkedAt
+    ? new Date(verificationInfo.checkedAt).toLocaleString('tr-TR')
+    : null;
+  const rejectedCount = verificationInfo?.rejectedCount ?? 0;
+  const verifiedSources = sourceMeta.filter((meta) => meta.ok);
 
   const navigateByDirection = useCallback(
     (direction) => {
@@ -139,6 +150,33 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         {showAllCities ? (
           <Text style={styles.allHint}>Tüm Türkiye için 60 günlük 1.2+ kayıtlar listelenir.</Text>
         ) : null}
+        {(sourceMeta.length > 0 || verificationInfo) && (
+          <View style={styles.verificationCard}>
+            <Text style={styles.verificationTitle}>Veri Doğrulama</Text>
+            <Text style={styles.verificationText}>
+              {verifiedAtText ? `Son kontrol: ${verifiedAtText}` : 'Son kontrol tarihi alınamadı.'}
+            </Text>
+            <Text style={styles.verificationText}>
+              {`${events.length} kayıt, ${verifiedSources.length}/${sourceMeta.length || 1} kaynak doğrulamasıyla gösteriliyor.`}
+            </Text>
+            {rejectedCount > 0 ? (
+              <Text style={styles.verificationWarning}>
+                {rejectedCount} kayıt eksik veya tutarsız bilgi nedeniyle gizlendi.
+              </Text>
+            ) : null}
+            <View style={styles.sourceMetaList}>
+              {sourceMeta.map((meta) => (
+                <View
+                  key={meta.key}
+                  style={[styles.sourceMetaItem, meta.ok ? styles.sourceMetaItemOk : styles.sourceMetaItemError]}
+                >
+                  <Text style={styles.sourceMetaName}>{meta.label}</Text>
+                  <Text style={styles.sourceMetaStatus}>{meta.ok ? `${meta.count} kayıt` : 'Bekleniyor'}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <ScrollView
           style={styles.list}
@@ -370,6 +408,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#f59e0b',
     marginBottom: 8,
+  },
+  verificationCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#0f172a',
+    backgroundColor: '#020617',
+    padding: 16,
+    marginBottom: 16,
+  },
+  verificationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#bfdbfe',
+    marginBottom: 6,
+  },
+  verificationText: {
+    fontSize: 13,
+    color: '#cbd5f5',
+    marginBottom: 4,
+  },
+  verificationWarning: {
+    fontSize: 13,
+    color: '#fbbf24',
+    marginBottom: 8,
+  },
+  sourceMetaList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+    marginTop: 4,
+  },
+  sourceMetaItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    margin: 4,
+  },
+  sourceMetaItemOk: {
+    borderColor: 'rgba(34,197,94,0.6)',
+    backgroundColor: 'rgba(34,197,94,0.15)',
+  },
+  sourceMetaItemError: {
+    borderColor: 'rgba(248,113,113,0.4)',
+    backgroundColor: 'rgba(248,113,113,0.12)',
+  },
+  sourceMetaName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  sourceMetaStatus: {
+    fontSize: 11,
+    color: '#e2e8f0',
   },
 });
 
