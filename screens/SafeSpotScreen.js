@@ -164,11 +164,12 @@ const SafeSpotScreen = () => {
                 title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
                 onPress={handleAnalyzePhoto}
                 disabled={isAnalyzing}
+                style={styles.tallButton}
               />
             </View>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
+                title={isAnalyzing ? 'Analiz ediliyor...' : 'Galeriden Seç'}
                 onPress={handlePickFromGallery}
                 disabled={isAnalyzing}
               />
@@ -358,6 +359,9 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     flex: 1,
+  },
+  tallButton: {
+    paddingVertical: 26,
   },
   photoTitle: {
     fontSize: 17,
