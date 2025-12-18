@@ -37,6 +37,21 @@ const fetchWithTimeout = async (url, { timeoutMs = 8000, ...options } = {}) => {
   }
 };
 
+const normalizeBaseUrl = (url) => {
+  if (typeof url !== 'string' || !url.length) {
+    return null;
+  }
+  let cleaned = url.replace(/\/$/, '');
+
+  // Android emulator sees host machine as 10.0.2.2 instead of localhost/127.0.0.1.
+  if (Platform.OS === 'android') {
+    cleaned = cleaned.replace('http://localhost', 'http://10.0.2.2');
+    cleaned = cleaned.replace('http://127.0.0.1', 'http://10.0.2.2');
+  }
+
+  return cleaned;
+};
+
 try {
   if (isNativePlatform) {
     const Maps = require('react-native-maps');
@@ -69,16 +84,15 @@ const MapExplorerScreen = ({ navigation }) => {
   const [mapReady, setMapReady] = useState(false);
 
   const vs30ApiBaseRaw = process.env.EXPO_PUBLIC_VS30_API_BASE;
-  const vs30ApiBase = typeof vs30ApiBaseRaw === 'string' && vs30ApiBaseRaw.length
-    ? vs30ApiBaseRaw.replace(/\/$/, '')
-    : null;
+  const vs30ApiBase = normalizeBaseUrl(vs30ApiBaseRaw);
   const vs30Available = Boolean(vs30ApiBase && isNativePlatform);
 
   const apiBaseRaw = process.env.EXPO_PUBLIC_API_BASE || vs30ApiBaseRaw;
-  const faultApiBase = typeof apiBaseRaw === 'string' && apiBaseRaw.length
-    ? apiBaseRaw.replace(/\/$/, '')
-    : null;
+  const faultApiBase = normalizeBaseUrl(apiBaseRaw);
   const faultAvailable = Boolean(faultApiBase && isNativePlatform);
+
+  const fetchTimeoutMsRaw = Number(process.env.EXPO_PUBLIC_MAP_FETCH_TIMEOUT_MS);
+  const fetchTimeoutMs = Number.isFinite(fetchTimeoutMsRaw) ? fetchTimeoutMsRaw : 15000;
 
   const mapRef = useRef(null);
   const canPickPoint = Boolean(isNativePlatform && (vs30Available || faultAvailable));
@@ -123,6 +137,10 @@ const MapExplorerScreen = ({ navigation }) => {
       syncLocation();
     }
   }, [syncLocation]);
+
+  useEffect(() => {
+    console.log('[MapExplorer] bases', { vs30ApiBase, faultApiBase, fetchTimeoutMs });
+  }, [vs30ApiBase, faultApiBase, fetchTimeoutMs]);
 
   const navigateByDirection = useCallback(
     (direction) => {
@@ -202,7 +220,7 @@ const MapExplorerScreen = ({ navigation }) => {
 
     if (vs30Available) {
       try {
-        const response = await fetchWithTimeout(`${vs30ApiBase}/vs30?${searchParams.toString()}`, { timeoutMs: 8000 });
+        const response = await fetchWithTimeout(`${vs30ApiBase}/vs30?${searchParams.toString()}`, { timeoutMs: fetchTimeoutMs });
         if (!response.ok) {
           throw new Error(`VS30 API error ${response.status}`);
         }
@@ -221,7 +239,7 @@ const MapExplorerScreen = ({ navigation }) => {
       try {
         const response = await fetchWithTimeout(
           `${faultApiBase}/api/fault-distance?${searchParams.toString()}`,
-          { timeoutMs: 8000 }
+          { timeoutMs: fetchTimeoutMs }
         );
         if (!response.ok) {
           throw new Error(`Fault API error ${response.status}`);

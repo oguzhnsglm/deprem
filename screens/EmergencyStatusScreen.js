@@ -92,7 +92,7 @@ const EmergencyStatusScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   card: {
     backgroundColor: '#0f1114',
@@ -145,11 +145,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: 0,
-    paddingBottom: 12,
+    paddingBottom: 0,
   },
   helpButton: {
-    marginTop: 8,
-    paddingVertical: 40,
+    marginTop: 0,
+    paddingVertical: 18,
     borderRadius: 36,
     marginHorizontal: 24,
   },
@@ -161,3 +161,8 @@ const styles = StyleSheet.create({
 });
 
 export default EmergencyStatusScreen;
+
+
+
+
+

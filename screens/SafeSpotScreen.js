@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, Image, ActivityIndicator, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -168,7 +168,7 @@ const SafeSpotScreen = () => {
             </View>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
+                title={isAnalyzing ? 'Analiz ediliyor...' : 'Medya Seç'}
                 onPress={handlePickFromGallery}
                 disabled={isAnalyzing}
               />
@@ -177,7 +177,7 @@ const SafeSpotScreen = () => {
           {isAnalyzing && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#f8fafc" size="small" />
-              <Text style={styles.loadingText}>Fotoğraf inceleniyor...</Text>
+              <Text style={styles.loadingText}>FotoÄŸraf inceleniyor...</Text>
             </View>
           )}
           {statusMessage ? <Text style={styles.photoHint}>{statusMessage}</Text> : null}
@@ -193,7 +193,7 @@ const SafeSpotScreen = () => {
                   <Text style={styles.providerTitle}>{openAiAnalysis.provider || 'OpenAI GPT-4'}</Text>
                   {openAiAnalysis.error && (
                     <View style={styles.errorBox}>
-                      <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
+                      <Text style={styles.errorTitle}>âš ï¸ Hata OluÅŸtu</Text>
                       <Text style={styles.providerError}>{openAiAnalysis.error}</Text>
                     </View>
                   )}
@@ -262,7 +262,7 @@ const SafeSpotScreen = () => {
                   <Text style={styles.providerTitle}>{geminiAnalysis.provider || 'Google Gemini'}</Text>
                   {geminiAnalysis.error && (
                     <View style={styles.errorBox}>
-                      <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
+                      <Text style={styles.errorTitle}>âš ï¸ Hata OluÅŸtu</Text>
                       <Text style={styles.providerError}>{geminiAnalysis.error}</Text>
                     </View>
                   )}
@@ -549,3 +549,13 @@ const styles = StyleSheet.create({
 });
 
 export default SafeSpotScreen;
+
+
+
+
+
+
+
+
+
+
