@@ -18,6 +18,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#bbf7d0',
     marginTop: 24,
+    width: '90%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 16,

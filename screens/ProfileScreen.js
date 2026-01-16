@@ -6,7 +6,6 @@ import PROVINCES from '../logic/provinces';
 import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
 import { computeTabOrder } from '../navigation/tabOrder';
 
-const THRESHOLD_OPTIONS = [5, 6, 7];
 const CITY_OPTIONS = PROVINCES;
 
 const ProfileScreen = ({ navigation }) => {
@@ -19,7 +18,6 @@ const ProfileScreen = ({ navigation }) => {
     surname: storedPrefs.surname || '',
     age: '',
     address: '',
-    threshold: storedPrefs.threshold || 5,
   });
 
   const [error, setError] = useState('');
@@ -85,16 +83,10 @@ const ProfileScreen = ({ navigation }) => {
       return;
     }
 
-    if (!profile.threshold) {
-      setError('Deprem şiddeti eşiği seçmelisin.');
-      return;
-    }
-
     setError('');
     setSaved(true);
     setProfilePreferences({
       city: profile.city,
-      threshold: profile.threshold,
       name: profile.name,
       surname: profile.surname,
     });
@@ -159,33 +151,6 @@ const ProfileScreen = ({ navigation }) => {
             <Text style={styles.selectorValue}>{profile.city}</Text>
             <Text style={styles.selectorHint}>Değiştir</Text>
           </TouchableOpacity>
-
-          <Text style={styles.label}>Deprem Şiddeti Eşiğim</Text>
-          <Text style={styles.helper}>
-            Eşik değeri 5.0'dan başlar. Belirlediğin değer ve üzerindeki sarsıntılarda önce sana, yanıt gelmezse yakınlarına
-            otomatik bildirim gider.
-          </Text>
-
-          <View style={styles.chipsRow}>
-            {THRESHOLD_OPTIONS.map((value) => {
-              const active = Number(profile.threshold) === value;
-              const label = value === 7 ? '7.0+' : `${value}.0`;
-              return (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.thresholdChip, active && styles.dangerChipActive]}
-                  onPress={() => handleInputChange('threshold', value)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.thresholdValue, active && styles.dangerChipText]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.thresholdWarning}>
-            5.0 ve üzeri eşikler AFAD duyurularıyla uyumludur. Şimdilik 7.0+ maksimum eşik olarak destekleniyor.
-          </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {saved ? <Text style={styles.successText}>Profil bilgilerin güncellendi.</Text> : null}
@@ -313,16 +278,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
-  helper: {
-    fontSize: 13,
-    color: '#f59e0b',
-    marginBottom: 12,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
   selector: {
     backgroundColor: '#120a0f',
     borderRadius: 16,
@@ -343,34 +298,6 @@ const styles = StyleSheet.create({
   selectorHint: {
     color: '#f8fafc',
     fontWeight: '600',
-  },
-  thresholdChip: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1f2933',
-    backgroundColor: '#0f1114',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  thresholdValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#e5e7eb',
-  },
-  dangerChipActive: {
-    backgroundColor: '#b91c1c',
-    borderColor: '#b91c1c',
-  },
-  dangerChipText: {
-    color: '#f8fafc',
-    fontWeight: '700',
-  },
-  thresholdWarning: {
-    fontSize: 12,
-    color: '#f59e0b',
-    marginBottom: 12,
   },
   errorText: {
     color: '#dc2626',

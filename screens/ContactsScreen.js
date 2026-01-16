@@ -12,6 +12,7 @@ import {
 import ScreenWrapper from '../components/ScreenWrapper';
 import ContactCard from '../components/ContactCard';
 import PrimaryButton from '../components/PrimaryButton';
+import { getEmergencyContacts, setEmergencyContacts } from '../logic/contactsStore';
 
 const formatTurkishPhone = (digits) => {
   if (digits.length <= 3) return `+90 ${digits}`.trim();
@@ -26,14 +27,11 @@ const CLOSENESS_LEVELS = [
   { label: 'Bilgilendir', value: 'Bilgilendir' },
 ];
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const ContactsScreen = () => {
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState(() => getEmergencyContacts());
   const [name, setName] = useState('');
   const [relation, setRelation] = useState('');
   const [rawPhone, setRawPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [closeness, setCloseness] = useState('');
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -42,7 +40,6 @@ const ContactsScreen = () => {
   const handleAddContact = () => {
     const trimmedName = name.trim();
     const trimmedRelation = relation.trim();
-    const trimmedEmail = email.trim();
     const cleanPhone = rawPhone.replace(/\D/g, '');
 
     if (!trimmedName || !trimmedRelation) {
@@ -60,11 +57,6 @@ const ContactsScreen = () => {
       return;
     }
 
-    if (!EMAIL_REGEX.test(trimmedEmail.toLowerCase())) {
-      setError('Lütfen geçerli bir e-posta adresi girin.');
-      return;
-    }
-
     if (!closeness) {
       setError('Lütfen yakınlık derecesi seçin.');
       return;
@@ -72,22 +64,25 @@ const ContactsScreen = () => {
 
     const formattedPhone = formatTurkishPhone(cleanPhone);
 
-    setContacts((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}`,
-        name: trimmedName,
-        relation: trimmedRelation,
-        phone: formattedPhone,
-        email: trimmedEmail,
-        closeness,
-      },
-    ]);
+    setContacts((prev) => {
+      const nextContacts = [
+        ...prev,
+        {
+          id: `${Date.now()}`,
+          name: trimmedName,
+          relation: trimmedRelation,
+          phone: formattedPhone,
+          rawPhone: cleanPhone,
+          closeness,
+        },
+      ];
+      setEmergencyContacts(nextContacts);
+      return nextContacts;
+    });
 
     setName('');
     setRelation('');
     setRawPhone('');
-    setEmail('');
     setCloseness('');
     setError('');
   };
@@ -103,6 +98,14 @@ const ContactsScreen = () => {
       return next;
     });
     setError('');
+  };
+
+  const handleDeleteContact = (contactId) => {
+    setContacts((prev) => {
+      const nextContacts = prev.filter((contact) => contact.id !== contactId);
+      setEmergencyContacts(nextContacts);
+      return nextContacts;
+    });
   };
 
   return (
@@ -125,8 +128,8 @@ const ContactsScreen = () => {
             <View style={styles.alertCard}>
               <Text style={styles.alertTitle}>Nasıl Çalışıyor?</Text>
               <Text style={styles.alertHint}>
-                Profilindeki eşik aşıldığında önce sana bildirim gelir. 2 dakika içinde yanıt vermezsen buradaki kişilere konumun
-                SMS ile gönderilir.
+                Yardıma ihtiyacım var dediğinde WhatsApp, bu listedeki kişilere konumunu ve durumunu bildirir.
+                Her sohbet için Gönder'e dokun; ardından Sıradaki kişi butonuyla devam et.
               </Text>
               {contacts.length === 0 ? (
                 <Text style={styles.alertEmpty}>Listede kişi yok. En az bir kişi eklediğinden emin ol.</Text>
@@ -146,8 +149,8 @@ const ContactsScreen = () => {
                 name={contact.name}
                 relation={contact.relation}
                 phone={contact.phone}
-                email={contact.email}
                 closeness={contact.closeness}
+                onDelete={() => handleDeleteContact(contact.id)}
               />
             ))}
 
@@ -174,15 +177,6 @@ const ContactsScreen = () => {
                     onChangeText={setRelation}
                     placeholder="İlişki (Örn: Anne, Kardeş, Komşu)"
                     placeholderTextColor="#9ca3af"
-                    style={styles.input}
-                  />
-                  <TextInput
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="E-posta"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
                     style={styles.input}
                   />
                   <View style={styles.phoneRow}>
@@ -241,6 +235,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    marginTop: 12,
     marginBottom: 16,
     alignItems: 'center',
   },
@@ -256,6 +251,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontSize: 14,
     textAlign: 'center',
+    marginHorizontal: 20,
   },
   list: {
     paddingBottom: 36,
@@ -267,6 +263,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2933',
     marginBottom: 18,
+    width: '90%',
+    alignSelf: 'center',
   },
   alertTitle: {
     fontSize: 16,
@@ -298,6 +296,7 @@ const styles = StyleSheet.create({
   inlineAddButton: {
     marginTop: 12,
     alignSelf: 'flex-start',
+    marginLeft: 12,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
@@ -317,6 +316,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2933',
     marginTop: 14,
+    width: '90%',
+    alignSelf: 'center',
   },
   formTitle: {
     fontSize: 18,

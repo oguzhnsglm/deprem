@@ -34,7 +34,7 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const EmergencyStatusScreen = ({ navigation }) => {
   const handleSelectStatus = (status) => {
-    navigation.navigate('Alert', { status });
+    navigation.navigate('Alert', { status, autoShare: true });
   };
 
   const handleDial = (number) => {
