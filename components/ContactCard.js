@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-const ContactCard = ({ name, relation, phone, email, closeness }) => {
+const ContactCard = ({ name, relation, phone, email, closeness, onDelete }) => {
+  const hasEmail = Boolean(email);
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -10,14 +11,19 @@ const ContactCard = ({ name, relation, phone, email, closeness }) => {
           <Text style={styles.badgeText}>{closeness}</Text>
         </View>
       </View>
-      <View style={styles.metaRow}>
+      <View style={[styles.metaRow, !hasEmail && styles.metaRowSolo]}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{relation}</Text>
         </View>
-        <Text style={styles.email}>{email}</Text>
+        {hasEmail ? <Text style={styles.email}>{email}</Text> : null}
       </View>
       <Text style={styles.caption}>Hızlı arama / mesaj</Text>
       <Text style={styles.phone}>{phone}</Text>
+      {onDelete ? (
+        <TouchableOpacity style={styles.deleteButton} onPress={onDelete} activeOpacity={0.8}>
+          <Text style={styles.deleteButtonText}>Sil</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 };
@@ -35,6 +41,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 18,
     elevation: 8,
+    width: '90%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -47,6 +55,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  metaRowSolo: {
+    justifyContent: 'flex-start',
   },
   name: {
     fontSize: 20,
@@ -86,6 +97,23 @@ const styles = StyleSheet.create({
     color: '#047857',
     fontWeight: '700',
     letterSpacing: 0.8,
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+  },
+  deleteButtonText: {
+    color: '#fecaca',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
 });
 

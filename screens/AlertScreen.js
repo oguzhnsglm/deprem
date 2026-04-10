@@ -1,18 +1,188 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
+import * as Location from 'expo-location';
 import ScreenWrapper from '../components/ScreenWrapper';
+import PrimaryButton from '../components/PrimaryButton';
+import { getProfilePreferences } from '../logic/profileStore';
+import { getEmergencyContacts } from '../logic/contactsStore';
 
 const EMERGENCY_NUMBERS = [
   { label: 'AFAD 122', value: '122' },
   { label: '112 Acil', value: '112' },
   { label: 'Alo Deprem 184', value: '184' },
 ];
+const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
+const normalizePhoneDigits = (value) => String(value || '').replace(/\D/g, '');
+const resolveWhatsAppPhone = (contact) => {
+  const digits = normalizePhoneDigits(contact?.rawPhone || contact?.phone);
+  if (!digits) {
+    return null;
+  }
+  if (digits.length === 10) {
+    return `90${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `90${digits.slice(1)}`;
+  }
+  if (digits.length >= 12 && digits.startsWith('90')) {
+    return digits;
+  }
+  return digits;
+};
 
 const AlertScreen = ({ route }) => {
-  const { status = 'İyiyim' } = route.params || {};
+  const { status = 'İyiyim', autoShare = false } = route.params || {};
+  const [whatsAppHint, setWhatsAppHint] = useState('');
+  const [autoShareTriggered, setAutoShareTriggered] = useState(false);
+  const [recipientQueue, setRecipientQueue] = useState([]);
+  const [queueIndex, setQueueIndex] = useState(-1);
+  const [queueMessage, setQueueMessage] = useState('');
+  const profile = getProfilePreferences();
+  const defaultWhatsAppHint =
+    "WhatsApp üzerinden kayıtlı kişilerin sohbeti sırayla açılır; her sohbet için Gönder'e dokun. Sonraki kişi için Sıradaki kişi butonunu kullan.";
+  const fullName = [profile.name, profile.surname]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(' ') || 'Yakının';
+
+  const resolveLocationText = useCallback(async () => {
+    if (!isNativePlatform) {
+      return 'Konum tarayıcıda paylaşılamadı.';
+    }
+
+    try {
+      const { status: permissionStatus } = await Location.requestForegroundPermissionsAsync();
+      if (permissionStatus !== 'granted') {
+        return 'Konum izni verilmedi.';
+      }
+
+      const { coords } = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      if (!coords) {
+        return 'Konum alınamadı.';
+      }
+
+      const latitude = coords.latitude.toFixed(5);
+      const longitude = coords.longitude.toFixed(5);
+      return `${latitude}, ${longitude} (https://maps.google.com/?q=${coords.latitude},${coords.longitude})`;
+    } catch (error) {
+      return 'Konum alınamadı.';
+    }
+  }, []);
+
+  const buildWhatsAppMessage = useCallback(
+    (locationText, timeText) => {
+      const timestamp = timeText || new Date().toLocaleString('tr-TR');
+      const lines = [
+        `${fullName} ${timestamp} saatinde acil durumda ve sizden yardım bekliyor.`,
+        `Konum: ${locationText}`,
+      ];
+      return lines.join('\n');
+    },
+    [fullName]
+  );
+
+  const buildWhatsAppLinks = useCallback((message, phone) => {
+    const encoded = encodeURIComponent(message);
+    const phoneParam = phone ? `phone=${phone}&` : '';
+    return {
+      deepLink: `whatsapp://send?${phoneParam}text=${encoded}`,
+      webLink: `https://api.whatsapp.com/send?${phoneParam}text=${encoded}`,
+    };
+  }, []);
+
+  const openWhatsAppForRecipient = useCallback(
+    async (recipient, message) => {
+      const { deepLink, webLink } = buildWhatsAppLinks(message, recipient?.whatsappPhone);
+      const shouldUseWeb = Platform.OS === 'web';
+      const tryLink = shouldUseWeb ? webLink : deepLink;
+
+      try {
+        const canOpen = shouldUseWeb ? true : await Linking.canOpenURL(deepLink);
+        await Linking.openURL(canOpen ? tryLink : webLink);
+        return true;
+      } catch (error) {
+        setWhatsAppHint('WhatsApp açılamadı, linki manuel paylaşıp göndermeyi deneyebilirsin.');
+        Linking.openURL(webLink).catch(() => {});
+        return false;
+      }
+    },
+    [buildWhatsAppLinks]
+  );
+
+  const handleWhatsAppShare = useCallback(async () => {
+    const contacts = getEmergencyContacts();
+    if (!contacts.length) {
+      setWhatsAppHint('Acil durum kişisi bulunamadı. Önce kişi ekleyin.');
+      setRecipientQueue([]);
+      setQueueIndex(-1);
+      setQueueMessage('');
+      return;
+    }
+
+    const recipients = contacts
+      .map((contact) => ({
+        ...contact,
+        whatsappPhone: resolveWhatsAppPhone(contact),
+      }))
+      .filter((contact) => contact.whatsappPhone);
+
+    if (!recipients.length) {
+      setWhatsAppHint('Acil durum kişileri için geçerli telefon bulunamadı.');
+      setRecipientQueue([]);
+      setQueueIndex(-1);
+      setQueueMessage('');
+      return;
+    }
+
+    const timeText = new Date().toLocaleString('tr-TR');
+    const locationText = await resolveLocationText();
+    const message = buildWhatsAppMessage(locationText, timeText);
+
+    setRecipientQueue(recipients);
+    setQueueMessage(message);
+    setQueueIndex(0);
+    setWhatsAppHint(`1/${recipients.length} kişi için WhatsApp açılıyor. Sonraki kişi için butona dokun.`);
+    await openWhatsAppForRecipient(recipients[0], message);
+  }, [buildWhatsAppMessage, openWhatsAppForRecipient, resolveLocationText]);
+
+  const handleNextRecipient = useCallback(async () => {
+    if (!recipientQueue.length) {
+      setWhatsAppHint('Önce WhatsApp gönderimini başlat.');
+      return;
+    }
+
+    const nextIndex = queueIndex + 1;
+    if (nextIndex >= recipientQueue.length) {
+      setWhatsAppHint('Tüm kişiler için WhatsApp açıldı.');
+      return;
+    }
+
+    setQueueIndex(nextIndex);
+    setWhatsAppHint(
+      `${nextIndex + 1}/${recipientQueue.length} kişi için WhatsApp açılıyor. Sonraki kişi için butona dokun.`
+    );
+    await openWhatsAppForRecipient(recipientQueue[nextIndex], queueMessage);
+  }, [openWhatsAppForRecipient, queueIndex, queueMessage, recipientQueue]);
+
+  useEffect(() => {
+    if (autoShare && !autoShareTriggered) {
+      handleWhatsAppShare();
+      setAutoShareTriggered(true);
+    }
+  }, [autoShare, autoShareTriggered, handleWhatsAppShare]);
+
   const handleDial = (number) => {
     Linking.openURL(`tel:${number}`).catch(() => {});
   };
+
+  const hasQueue = recipientQueue.length > 0 && queueIndex >= 0;
+  const hasNextRecipient = hasQueue && queueIndex < recipientQueue.length - 1;
+  const nextButtonLabel = hasNextRecipient
+    ? `Sıradaki kişi (${queueIndex + 2}/${recipientQueue.length})`
+    : 'Sıradaki kişi';
 
   return (
     <ScreenWrapper>
@@ -44,6 +214,19 @@ const AlertScreen = ({ route }) => {
             </TouchableOpacity>
           ))}
           <Text style={styles.emergencyHint}>Numaraya dokunduğunda telefon uygulaması açılır.</Text>
+        </View>
+
+        <View style={styles.whatsAppSection}>
+          {hasQueue ? (
+            <PrimaryButton
+              title={nextButtonLabel}
+              onPress={handleNextRecipient}
+              colorScheme="mint"
+              disabled={!hasNextRecipient}
+              style={[styles.nextButton, !hasNextRecipient && styles.nextButtonDisabled]}
+            />
+          ) : null}
+          <Text style={styles.whatsAppHint}>{whatsAppHint || defaultWhatsAppHint}</Text>
         </View>
 
         <Text style={styles.note}>
@@ -140,6 +323,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#f59e0b',
     lineHeight: 20,
+  },
+  whatsAppSection: {
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  whatsAppHint: {
+    marginTop: 8,
+    textAlign: 'center',
+    color: '#e5e7eb',
+    fontSize: 13,
+  },
+  nextButton: {
+    marginTop: 6,
+    width: '85%',
+  },
+  nextButtonDisabled: {
+    opacity: 0.6,
   },
 });
 

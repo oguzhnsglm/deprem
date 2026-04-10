@@ -3,58 +3,35 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini';
 const OPENAI_DEFAULT_API_URL = 'https://api.openai.com/v1/chat/completions';
-const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash-exp';
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 const getEnvValue = (key) => {
   const extra = Constants?.expoConfig?.extra ?? {};
   return extra[key] ?? process.env?.[key];
 };
 
-const rawProvider = (
-  getEnvValue('safeSpotProvider') ??
-  getEnvValue('SAFE_SPOT_PROVIDER') ??
-  getEnvValue('EXPO_PUBLIC_SAFE_SPOT_PROVIDER') ??
-  ''
-).toLowerCase();
-
 const rawModel =
   getEnvValue('safeSpotModel') ??
   getEnvValue('SAFE_SPOT_MODEL') ??
   getEnvValue('EXPO_PUBLIC_SAFE_SPOT_MODEL');
 
-const inferredProvider = rawProvider || (rawModel && rawModel.toLowerCase().includes('gemini') ? 'gemini' : '');
-const provider = inferredProvider || 'openai';
-const isGeminiProvider = provider === 'gemini';
-
-const MODEL_NAME = rawModel || (isGeminiProvider ? GEMINI_DEFAULT_MODEL : OPENAI_DEFAULT_MODEL);
+const MODEL_NAME = rawModel || OPENAI_DEFAULT_MODEL;
 
 const sharedKey = getEnvValue('safeSpotApiKey') ?? getEnvValue('SAFE_SPOT_API_KEY');
 
 const OPENAI_KEY =
-  (!isGeminiProvider && sharedKey) ||
+  sharedKey ||
   getEnvValue('safeSpotOpenAiKey') ||
   getEnvValue('SAFE_SPOT_OPENAI_KEY') ||
   getEnvValue('EXPO_PUBLIC_OPENAI_API_KEY');
 
-const GEMINI_KEY =
-  (isGeminiProvider && sharedKey) ||
-  getEnvValue('safeSpotGeminiKey') ||
-  getEnvValue('SAFE_SPOT_GEMINI_KEY') ||
-  getEnvValue('EXPO_PUBLIC_GEMINI_API_KEY');
-
-const API_KEY = isGeminiProvider ? GEMINI_KEY : OPENAI_KEY;
+const API_KEY = OPENAI_KEY;
 
 const rawApiUrl =
   getEnvValue('safeSpotApiUrl') ??
   getEnvValue('SAFE_SPOT_API_URL') ??
   getEnvValue('EXPO_PUBLIC_SAFE_SPOT_API_URL');
 
-const API_URL =
-  rawApiUrl ||
-  (isGeminiProvider
-    ? `${GEMINI_API_BASE}/models/${MODEL_NAME}:generateContent`
-    : OPENAI_DEFAULT_API_URL);
+const API_URL = rawApiUrl || OPENAI_DEFAULT_API_URL;
 
 const clamp01 = (value) => {
   const numeric = Number(value);
@@ -273,7 +250,7 @@ DİKKAT:
 `;
 
 const buildOpenAiRequestBody = (base64Image) => ({
-  model: OPENAI_DEFAULT_MODEL,
+  model: MODEL_NAME,
   messages: [
     {
       role: 'system',
@@ -295,26 +272,6 @@ const buildOpenAiRequestBody = (base64Image) => ({
   ],
   temperature: 0.2,
   response_format: { type: 'json_object' },
-});
-
-const buildGeminiRequestBody = (base64Image) => ({
-  contents: [
-    {
-      role: 'user',
-      parts: [
-        { text: buildPrompt() },
-        {
-          inline_data: {
-            mime_type: 'image/jpeg',
-            data: base64Image,
-          },
-        },
-      ],
-    },
-  ],
-  generationConfig: {
-    temperature: 0.2,
-  },
 });
 
 const extractMessageContent = (data) => {
@@ -339,25 +296,6 @@ const extractMessageContent = (data) => {
   return null;
 };
 
-const extractGeminiContent = (data) => {
-  const candidate = data?.candidates?.[0];
-  if (!candidate) {
-    return null;
-  }
-
-  const partsArray =
-    candidate?.content?.parts ||
-    candidate?.content ||
-    candidate?.contents ||
-    [];
-
-  const textPart = Array.isArray(partsArray)
-    ? partsArray.find((part) => typeof part?.text === 'string') || partsArray[0]
-    : null;
-
-  return typeof textPart?.text === 'string' ? textPart.text : null;
-};
-
 const parseStructuredAnalysis = (content) => {
   let parsed;
   try {
@@ -377,14 +315,6 @@ const parseStructuredAnalysis = (content) => {
 
 const parseOpenAiResponse = (data) => {
   const content = extractMessageContent(data);
-  if (!content) {
-    throw new Error('Yapay zeka yan?t? bo? d?nd?.');
-  }
-  return parseStructuredAnalysis(content);
-};
-
-const parseGeminiResponse = (data) => {
-  const content = extractGeminiContent(data);
   if (!content) {
     throw new Error('Yapay zeka yan?t? bo? d?nd?.');
   }
@@ -426,39 +356,6 @@ const callOpenAI = async (base64Image, apiKey) => {
   return parseOpenAiResponse(data);
 };
 
-const callGemini = async (base64Image, apiKey) => {
-  const body = buildGeminiRequestBody(base64Image);
-  const headers = { 'Content-Type': 'application/json' };
-  const requestUrl = `${GEMINI_API_BASE}/models/${GEMINI_DEFAULT_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const response = await fetch(requestUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = 'Bilinmeyen hata';
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (response.status === 400 && errorData.error?.message?.includes('API key')) {
-        errorMessage = 'API anahtarı geçersiz. Lütfen Google AI Studio\'dan yeni bir Gemini API anahtarı alın.';
-      } else if (errorData.error?.message) {
-        errorMessage = errorData.error.message;
-      }
-    } catch {
-      errorMessage = errorText;
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const data = await response.json();
-  return parseGeminiResponse(data);
-};
-
 export const analyzeSafeSpotPhoto = async (photoUri) => {
   let base64Image;
   try {
@@ -468,21 +365,13 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
       return fallbackAnalysis('missing-key');
     }
 
-    const body = isGeminiProvider
-      ? buildGeminiRequestBody(base64Image)
-      : buildOpenAiRequestBody(base64Image);
+    const body = buildOpenAiRequestBody(base64Image);
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${API_KEY}`,
+    };
 
-    const headers = isGeminiProvider
-      ? { 'Content-Type': 'application/json' }
-      : { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` };
-
-    const requestUrl = isGeminiProvider
-      ? API_URL.includes('key=')
-        ? API_URL
-        : `${API_URL}${API_URL.includes('?') ? '&' : '?'}key=${encodeURIComponent(API_KEY)}`
-      : API_URL;
-
-    const response = await fetch(requestUrl, {
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -490,22 +379,20 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
 
     if (!response.ok) {
       const message = await response.text();
-      throw new Error(`Yapay zeka isteği başarısız: ${response.status} ${message}`);
+      throw new Error(`Yapay zeka iste?i ba?ar?s?z: ${response.status} ${message}`);
     }
 
     const data = await response.json();
     if (__DEV__) {
       console.log('[safeSpotAnalyzer] AI response', {
-        provider,
-        requestUrl,
+        requestUrl: API_URL,
         status: response.status,
         keys: Object.keys(data || {}),
       });
     }
-    return isGeminiProvider ? parseGeminiResponse(data) : parseOpenAiResponse(data);
+    return parseOpenAiResponse(data);
   } catch (error) {
     console.warn('[safeSpotAnalyzer] failed', {
-      provider,
       apiUrl: API_URL,
       message: error?.message,
       stack: error?.stack,
@@ -515,61 +402,11 @@ export const analyzeSafeSpotPhoto = async (photoUri) => {
 };
 
 export const analyzeSafeSpotPhotoWithBothProviders = async (photoUri) => {
-  let base64Image;
-  try {
-    base64Image = await readImageAsBase64(photoUri);
-  } catch (error) {
-    throw new Error('Fotoğraf okunamadı: ' + error.message);
-  }
-
-  const results = {
-    openai: null,
+  const openai = await analyzeSafeSpotPhoto(photoUri);
+  return {
+    openai,
     gemini: null,
   };
-
-  // OpenAI çağrısı
-  if (OPENAI_KEY) {
-    try {
-      results.openai = await callOpenAI(base64Image, OPENAI_KEY);
-      results.openai.provider = 'OpenAI GPT-4';
-    } catch (error) {
-      console.warn('[OpenAI] Analiz başarısız:', error.message);
-      results.openai = {
-        ...fallbackAnalysis('error'),
-        provider: 'OpenAI GPT-4',
-        error: error.message,
-      };
-    }
-  } else {
-    results.openai = {
-      ...fallbackAnalysis('missing-key'),
-      provider: 'OpenAI GPT-4',
-      error: 'API anahtarı bulunamadı',
-    };
-  }
-
-  // Gemini çağrısı
-  if (GEMINI_KEY) {
-    try {
-      results.gemini = await callGemini(base64Image, GEMINI_KEY);
-      results.gemini.provider = 'Google Gemini';
-    } catch (error) {
-      console.warn('[Gemini] Analiz başarısız:', error.message);
-      results.gemini = {
-        ...fallbackAnalysis('error'),
-        provider: 'Google Gemini',
-        error: error.message,
-      };
-    }
-  } else {
-    results.gemini = {
-      ...fallbackAnalysis('missing-key'),
-      provider: 'Google Gemini',
-      error: 'API anahtarı bulunamadı',
-    };
-  }
-
-  return results;
 };
 
 export default analyzeSafeSpotPhoto;

@@ -18,7 +18,6 @@ const ProfileScreen = ({ navigation }) => {
     surname: storedPrefs.surname || '',
     age: '',
     address: '',
-    threshold: storedPrefs.threshold || 5,
   });
 
   const [error, setError] = useState('');
@@ -87,7 +86,6 @@ const ProfileScreen = ({ navigation }) => {
     setSaved(true);
     setProfilePreferences({
       city: profile.city,
-      threshold: profile.threshold,
       name: profile.name,
       surname: profile.surname,
     });

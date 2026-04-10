@@ -1,26 +1,24 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, Image, ActivityIndicator, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import SafeSpotAdvice from '../components/SafeSpotAdvice';
 import { getMockSafeSpotAdvice } from '../logic/mockSafeSpotAnalysis';
-import { analyzeSafeSpotPhotoWithBothProviders } from '../logic/safeSpotAnalyzer';
+import { analyzeSafeSpotPhoto } from '../logic/safeSpotAnalyzer';
 
 const SafeSpotScreen = () => {
-  const [analyses, setAnalyses] = useState({ openai: null, gemini: null });
+  const [analysis, setAnalysis] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const openAiAnalysis = analyses.openai;
-  const geminiAnalysis = analyses.gemini;
+  const openAiAnalysis = analysis;
   const openAiIsAi = openAiAnalysis?.source === 'ai';
-  const geminiIsAi = geminiAnalysis?.source === 'ai';
 
   const advice = useMemo(
-    () => analyses.openai?.summary ?? analyses.gemini?.summary ?? getMockSafeSpotAdvice(),
-    [analyses]
+    () => analysis?.summary ?? getMockSafeSpotAdvice(),
+    [analysis]
   );
 
   const requestCameraPermissions = async () => {
@@ -50,14 +48,14 @@ const SafeSpotScreen = () => {
   const analyzePhoto = async (photoUri) => {
     setCapturedPhoto(photoUri);
     setIsAnalyzing(true);
-    setStatusMessage('Fotoğraf hem OpenAI hem Gemini ile analiz ediliyor...');
+    setStatusMessage('Fotoğraf OpenAI ile analiz ediliyor...');
     setErrorMessage('');
 
     try {
-      const aiResults = await analyzeSafeSpotPhotoWithBothProviders(photoUri);
-      setAnalyses(aiResults);
+      const aiResult = await analyzeSafeSpotPhoto(photoUri);
+      setAnalysis(aiResult);
 
-      const hasAnyAiResult = aiResults.openai?.source === 'ai' || aiResults.gemini?.source === 'ai';
+      const hasAnyAiResult = aiResult?.source === 'ai';
       setStatusMessage(
         hasAnyAiResult
           ? 'Yapay zeka analizleri tamamlandı.'
@@ -164,20 +162,22 @@ const SafeSpotScreen = () => {
                 title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
                 onPress={handleAnalyzePhoto}
                 disabled={isAnalyzing}
+                style={styles.tallButton}
               />
             </View>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : 'Medya Seç'}
+                title={isAnalyzing ? 'Analiz ediliyor...' : 'Galeriden Seç'}
                 onPress={handlePickFromGallery}
                 disabled={isAnalyzing}
+                style={styles.tallButton}
               />
             </View>
           </View>
           {isAnalyzing && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#f8fafc" size="small" />
-              <Text style={styles.loadingText}>FotoÄŸraf inceleniyor...</Text>
+              <Text style={styles.loadingText}>Fotoğraf inceleniyor...</Text>
             </View>
           )}
           {statusMessage ? <Text style={styles.photoHint}>{statusMessage}</Text> : null}
@@ -193,7 +193,7 @@ const SafeSpotScreen = () => {
                   <Text style={styles.providerTitle}>{openAiAnalysis.provider || 'OpenAI GPT-4'}</Text>
                   {openAiAnalysis.error && (
                     <View style={styles.errorBox}>
-                      <Text style={styles.errorTitle}>âš ï¸ Hata OluÅŸtu</Text>
+                      <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
                       <Text style={styles.providerError}>{openAiAnalysis.error}</Text>
                     </View>
                   )}
@@ -255,77 +255,6 @@ const SafeSpotScreen = () => {
               </View>
             )}
 
-            {/* Gemini Analiz Sonucu */}
-            {geminiAnalysis && (
-              <View style={styles.previewCard}>
-                <View style={styles.providerHeader}>
-                  <Text style={styles.providerTitle}>{geminiAnalysis.provider || 'Google Gemini'}</Text>
-                  {geminiAnalysis.error && (
-                    <View style={styles.errorBox}>
-                      <Text style={styles.errorTitle}>âš ï¸ Hata OluÅŸtu</Text>
-                      <Text style={styles.providerError}>{geminiAnalysis.error}</Text>
-                    </View>
-                  )}
-                </View>
-                {!geminiIsAi && geminiAnalysis.notice ? (
-                  <View style={styles.noticeBox}>
-                    <Text style={styles.noticeText}>{geminiAnalysis.notice}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.imageWrapper}>
-                  <Image 
-                    source={{ uri: capturedPhoto }} 
-                    style={styles.previewImage}
-                    resizeMode="cover"
-                  />
-                  {geminiIsAi &&
-                    geminiAnalysis.safeZones?.map((zone) =>
-                      zone.bounds ? (
-                        <View
-                          key={zone.id}
-                          style={[styles.overlayBox, styles.geminiOverlay, overlayStyle(zone.bounds)]}
-                        >
-                          <Text style={styles.overlayLabel}>{zone.label}</Text>
-                        </View>
-                      ) : null
-                    )}
-                </View>
-
-                {geminiAnalysis.safeZones?.length ? (
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>
-                      {geminiIsAi ? 'Önerilen güvenli alanlar' : 'Genel güvenli alan rehberi'}
-                    </Text>
-                    {geminiAnalysis.safeZones.map((zone) => (
-                      <View key={zone.id} style={styles.zoneRow}>
-                        <View style={styles.zoneBadge} />
-                        <View style={styles.zoneTextWrapper}>
-                          <Text style={styles.zoneLabel}>{zone.label}</Text>
-                          <Text style={styles.zoneGuidance}>{zone.guidance}</Text>
-                        </View>
-                        {geminiIsAi ? (
-                          <Text style={styles.zoneConfidence}>{Math.round(zone.confidence * 100)}%</Text>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-
-                {geminiAnalysis.risks?.length ? (
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>
-                      {geminiIsAi ? 'Dikkat edilecek bölgeler' : 'Genel risk uyarıları'}
-                    </Text>
-                    {geminiAnalysis.risks.map((risk) => (
-                      <View key={risk.id} style={styles.riskRow}>
-                        <Text style={styles.riskLabel}>{risk.label}</Text>
-                        <Text style={styles.riskDetail}>{risk.detail}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            )}
           </View>
         )}
 
@@ -350,6 +279,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2933',
     marginBottom: 12,
+    marginTop: 12,
+    width: '90%',
+    alignSelf: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -358,6 +290,9 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     flex: 1,
+  },
+  tallButton: {
+    paddingVertical: 26,
   },
   photoTitle: {
     fontSize: 17,
@@ -472,10 +407,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  geminiOverlay: {
-    borderColor: 'rgba(239, 68, 68, 0.9)',
-    backgroundColor: 'rgba(239, 68, 68, 0.18)',
-  },
   overlayLabel: {
     color: '#f97316',
     fontWeight: '700',
@@ -549,13 +480,3 @@ const styles = StyleSheet.create({
 });
 
 export default SafeSpotScreen;
-
-
-
-
-
-
-
-
-
-

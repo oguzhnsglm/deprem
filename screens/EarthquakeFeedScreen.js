@@ -139,7 +139,6 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         {showAllCities ? (
           <Text style={styles.allHint}>Tüm Türkiye için 60 günlük 1.2+ kayıtlar listelenir.</Text>
         ) : null}
-
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
@@ -374,3 +373,4 @@ const styles = StyleSheet.create({
 });
 
 export default EarthquakeFeedScreen;
+
