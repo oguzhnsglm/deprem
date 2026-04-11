@@ -140,7 +140,8 @@ const MapExplorerScreen = ({ navigation }) => {
 
   useEffect(() => {
     console.log('[MapExplorer] bases', { vs30ApiBase, faultApiBase, fetchTimeoutMs });
-  }, [vs30ApiBase, faultApiBase, fetchTimeoutMs]);
+    console.log('[MapExplorer] availability', { vs30Available, faultAvailable, canPickPoint, isNativePlatform });
+  }, [vs30ApiBase, faultApiBase, fetchTimeoutMs, vs30Available, faultAvailable, canPickPoint]);
 
   const navigateByDirection = useCallback(
     (direction) => {

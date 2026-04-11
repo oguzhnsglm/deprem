@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import ContactCard from '../components/ContactCard';
 import PrimaryButton from '../components/PrimaryButton';
-import { getEmergencyContacts, setEmergencyContacts } from '../logic/contactsStore';
+import { getCurrentUser } from '../logic/authStore';
+import { loadContacts, addContact, deleteContact } from '../logic/contactsService';
 
 const formatTurkishPhone = (digits) => {
   if (digits.length <= 3) return `+90 ${digits}`.trim();
@@ -27,19 +29,34 @@ const CLOSENESS_LEVELS = [
   { label: 'Bilgilendir', value: 'Bilgilendir' },
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ContactsScreen = () => {
-  const [contacts, setContacts] = useState(() => getEmergencyContacts());
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [relation, setRelation] = useState('');
   const [rawPhone, setRawPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [closeness, setCloseness] = useState('');
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const scrollRef = useRef(null);
 
-  const handleAddContact = () => {
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user) { setLoading(false); return; }
+    loadContacts(user.id).then((data) => {
+      setContacts(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleAddContact = async () => {
     const trimmedName = name.trim();
     const trimmedRelation = relation.trim();
+    const trimmedEmail = email.trim();
     const cleanPhone = rawPhone.replace(/\D/g, '');
 
     if (!trimmedName || !trimmedRelation) {
@@ -57,34 +74,55 @@ const ContactsScreen = () => {
       return;
     }
 
+    if (!EMAIL_REGEX.test(trimmedEmail.toLowerCase())) {
+      setError('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
     if (!closeness) {
       setError('Lütfen yakınlık derecesi seçin.');
       return;
     }
 
     const formattedPhone = formatTurkishPhone(cleanPhone);
+    const contactData = {
+      name: trimmedName,
+      relation: trimmedRelation,
+      phone: formattedPhone,
+      email: trimmedEmail,
+      closeness,
+    };
 
-    setContacts((prev) => {
-      const nextContacts = [
-        ...prev,
-        {
-          id: `${Date.now()}`,
-          name: trimmedName,
-          relation: trimmedRelation,
-          phone: formattedPhone,
-          rawPhone: cleanPhone,
-          closeness,
-        },
-      ];
-      setEmergencyContacts(nextContacts);
-      return nextContacts;
-    });
+    setSaving(true);
+    const user = getCurrentUser();
+    if (user) {
+      const saved = await addContact(user.id, contactData);
+      setSaving(false);
+      if (saved) {
+        setContacts((prev) => [...prev, saved]);
+      } else {
+        setError('Kişi kaydedilemedi, internet bağlantını kontrol et.');
+        return;
+      }
+    } else {
+      setSaving(false);
+      setContacts((prev) => [...prev, { id: `${Date.now()}`, ...contactData }]);
+    }
 
     setName('');
     setRelation('');
     setRawPhone('');
+    setEmail('');
     setCloseness('');
     setError('');
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    const user = getCurrentUser();
+    if (user) {
+      await deleteContact(contactId);
+    }
+    setContacts((prev) => prev.filter((c) => c.id !== contactId));
   };
 
   const toggleForm = () => {
@@ -100,14 +138,6 @@ const ContactsScreen = () => {
     setError('');
   };
 
-  const handleDeleteContact = (contactId) => {
-    setContacts((prev) => {
-      const nextContacts = prev.filter((contact) => contact.id !== contactId);
-      setEmergencyContacts(nextContacts);
-      return nextContacts;
-    });
-  };
-
   return (
     <ScreenWrapper>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.select({ ios: 'padding', android: undefined })}>
@@ -119,6 +149,13 @@ const ContactsScreen = () => {
             </Text>
           </View>
 
+          {loading ? (
+              <View style={styles.loaderRow}>
+                <ActivityIndicator color="#f8fafc" />
+                <Text style={styles.loaderText}>Kişiler yükleniyor...</Text>
+              </View>
+            ) : null}
+
           <ScrollView
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
@@ -128,8 +165,8 @@ const ContactsScreen = () => {
             <View style={styles.alertCard}>
               <Text style={styles.alertTitle}>Nasıl Çalışıyor?</Text>
               <Text style={styles.alertHint}>
-                Yardıma ihtiyacım var dediğinde WhatsApp, bu listedeki kişilere konumunu ve durumunu bildirir.
-                Her sohbet için Gönder'e dokun; ardından Sıradaki kişi butonuyla devam et.
+                Profilindeki eşik aşıldığında önce sana bildirim gelir. 2 dakika içinde yanıt vermezsen buradaki kişilere konumun
+                SMS ile gönderilir.
               </Text>
               {contacts.length === 0 ? (
                 <Text style={styles.alertEmpty}>Listede kişi yok. En az bir kişi eklediğinden emin ol.</Text>
@@ -149,6 +186,7 @@ const ContactsScreen = () => {
                 name={contact.name}
                 relation={contact.relation}
                 phone={contact.phone}
+                email={contact.email}
                 closeness={contact.closeness}
                 onDelete={() => handleDeleteContact(contact.id)}
               />
@@ -177,6 +215,15 @@ const ContactsScreen = () => {
                     onChangeText={setRelation}
                     placeholder="İlişki (Örn: Anne, Kardeş, Komşu)"
                     placeholderTextColor="#9ca3af"
+                    style={styles.input}
+                  />
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="E-posta"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                     style={styles.input}
                   />
                   <View style={styles.phoneRow}>
@@ -217,7 +264,11 @@ const ContactsScreen = () => {
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                <PrimaryButton title="Kişiyi Kaydet" onPress={handleAddContact} colorScheme="mint" />
+                <PrimaryButton
+                  title={saving ? 'Kaydediliyor...' : 'Kişiyi Kaydet'}
+                  onPress={saving ? undefined : handleAddContact}
+                  colorScheme="mint"
+                />
               </View>
             ) : null}
           </ScrollView>
@@ -231,11 +282,21 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  loaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 10,
+  },
+  loaderText: {
+    color: '#f8fafc',
+    fontSize: 14,
+  },
   container: {
     flex: 1,
   },
   header: {
-    marginTop: 12,
     marginBottom: 16,
     alignItems: 'center',
   },
@@ -251,7 +312,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontSize: 14,
     textAlign: 'center',
-    marginHorizontal: 20,
   },
   list: {
     paddingBottom: 36,
@@ -263,8 +323,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2933',
     marginBottom: 18,
-    width: '90%',
-    alignSelf: 'center',
   },
   alertTitle: {
     fontSize: 16,
@@ -296,7 +354,6 @@ const styles = StyleSheet.create({
   inlineAddButton: {
     marginTop: 12,
     alignSelf: 'flex-start',
-    marginLeft: 12,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
@@ -316,8 +373,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2933',
     marginTop: 14,
-    width: '90%',
-    alignSelf: 'center',
   },
   formTitle: {
     fontSize: 18,
@@ -402,3 +457,4 @@ const styles = StyleSheet.create({
 });
 
 export default ContactsScreen;
+

@@ -28,6 +28,7 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastError, setLastError] = useState('');
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const loadCityEvents = useCallback(
     async (cityName, { silent } = {}) => {
@@ -42,10 +43,11 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         const isAllCities = cityName === ALL_CITIES_OPTION;
         const result = await fetchCityEarthquakes({
           city: isAllCities ? undefined : cityName,
-          lookbackDays: 60,
+          lookbackDays: 2,
           minMagnitude: 1.2,
         });
         setEvents(result.events || []);
+        setVisibleCount(10);
       } catch (error) {
         setEvents([]);
         setLastError(error?.message || 'Veri yüklenemedi.');
@@ -144,7 +146,7 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#f8fafc" />}
         >
-          {events.map((event) => (
+          {events.slice(0, visibleCount).map((event) => (
             <View key={`${event.source}-${event.id}`} style={styles.eventCard}>
               <View style={styles.eventHeader}>
                 <Text style={styles.magnitude}>{Number(event.magnitude).toFixed(1)}</Text>
@@ -155,11 +157,18 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.eventNote}>
-                Bu liste bilgilendirme amaclidir. Kritik duyurular icin resmi kurum bildirimlerini takip et.
-              </Text>
             </View>
           ))}
+
+          {visibleCount < events.length && !loading ? (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={() => setVisibleCount((prev) => prev + 10)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loadMoreText}>Daha Fazla Göster ({events.length - visibleCount} kaldı)</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {!hadEvents && !loading ? (
             <Text style={styles.empty}>
@@ -319,6 +328,20 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     textAlign: 'center',
     marginTop: 40,
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1f2933',
+    backgroundColor: '#0f1114',
+  },
+  loadMoreText: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalBackdrop: {
     flex: 1,

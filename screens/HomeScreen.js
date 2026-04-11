@@ -81,7 +81,7 @@ const HomeScreen = ({ navigation }) => {
       setLastError('');
 
       try {
-        const result = await fetchCityEarthquakes({ lookbackDays: 7, minMagnitude: 1.2 });
+        const result = await fetchCityEarthquakes({ lookbackDays: 2, minMagnitude: 1.2 });
         if (cancelRef?.current) {
           return;
         }
@@ -118,21 +118,14 @@ const HomeScreen = ({ navigation }) => {
     ensureNotificationSetup();
   }, []);
 
-  const earthquakes = earthquakeState.events || [];
-  const primaryEvents = useMemo(
-    () => earthquakes.filter((event) => Number(event.magnitude) >= 3),
-    [earthquakes]
+  const earthquakes = useMemo(
+    () => (earthquakeState.events || []).filter((e) => e.source === 'USGS'),
+    [earthquakeState.events]
   );
-  const displayEvents = useMemo(() => {
-    if (primaryEvents.length > 0) {
-      return primaryEvents;
-    }
-    return earthquakes;
-  }, [primaryEvents, earthquakes]);
-  const usingFallbackEvents = primaryEvents.length === 0 && earthquakes.length > 0;
+  const displayEvents = useMemo(() => earthquakes.slice(0, 3), [earthquakes]);
 
-  const isLoading = loadingEvents && displayEvents.length === 0;
-  const hasNoEvents = !isLoading && displayEvents.length === 0;
+  const isLoading = loadingEvents && earthquakes.length === 0;
+  const hasNoEvents = !isLoading && earthquakes.length === 0;
 
   const handleRefreshEvents = () => {
     loadRecentEvents({ silent: true });
@@ -198,10 +191,10 @@ const HomeScreen = ({ navigation }) => {
               <View style={styles.appTitleDivider} />
             </View>
 
-            <Text style={styles.sectionTitle}>Son Uyarılar</Text>
-            <Text style={styles.sectionSubtitle}>
-              {city} için son sarsıntılar (2.0+). Kaynak: Google Deprem Haritaları örnek datası.
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Son Depremler</Text>
+              <Text style={styles.sourceLabel}>USGS</Text>
+            </View>
 
             {isLoading ? (
               <View style={styles.loaderRow}>
@@ -213,7 +206,7 @@ const HomeScreen = ({ navigation }) => {
                 {hasNoEvents ? (
                   <Text style={styles.emptyText}>{lastError || 'Bu aralıkta kayıt bulunamadı.'}</Text>
                 ) : (
-                  displayEvents.slice(0, 3).map((event) => (
+                  displayEvents.map((event) => (
                     <View key={event.id} style={styles.alertRow}>
                       <View style={styles.magnitudeBadge}>
                         <Text style={styles.magnitudeText}>{Number(event.magnitude).toFixed(1)}</Text>
@@ -228,11 +221,15 @@ const HomeScreen = ({ navigation }) => {
               </View>
             )}
 
-            {usingFallbackEvents ? (
-              <Text style={styles.fallbackNote}>3.0+ kayıt yok; son sarsıntıları listeliyoruz.</Text>
+            {!isLoading && !hasNoEvents ? (
+              <TouchableOpacity
+                style={styles.moreButton}
+                onPress={() => navigation.navigate('EarthquakeFeed')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.moreButtonText}>Daha fazla göster</Text>
+              </TouchableOpacity>
             ) : null}
-
-            <Text style={styles.profileNote}>Profilimde seçili şehir: {city}</Text>
           </View>
 
           <View style={styles.quickActions}>
@@ -257,6 +254,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingTop: 24,
     paddingBottom: 180,
   },
   backgroundLayer: {
@@ -293,6 +291,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.55,
     shadowRadius: 26,
     elevation: 14,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  sourceLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#f97316',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    backgroundColor: 'rgba(249,115,22,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  moreButton: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  moreButtonText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
   },
   appTitleWrapper: {
     alignItems: 'center',

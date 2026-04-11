@@ -9,7 +9,7 @@ const panicSteps = [
   'Dayanıklı koltuk, masa veya beyaz eşya yanında hayat üçgeni oluşturmaya çalış.',
   'Asansör veya merdivenleri kullanma; sarsıntı bitene kadar bulunduğun yerde kal.',
   "Ulaşabiliyorsan Acil Durum Kişileri listene 'Yardıma ihtiyacım var' bildirimi gönder.",
-  'Güvendeysen toplanma alanına çık ve burada tekrar haber ver.',
+  'Güvendeysen toplanma alanına çık ve burada tekrar haber ver.'
 ];
 
 const emergencyNumbers = [
@@ -27,7 +27,7 @@ const HIGHLIGHT_KEYWORDS = [
   'Asansör veya merdivenleri kullanma',
   'bulunduğun yerde kal',
   'Yardıma ihtiyacım var',
-  'toplanma alanına çık',
+  'toplanma alanına çık'
 ];
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

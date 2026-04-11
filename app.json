@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "jsEngine": "hermes",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "permissions": [
         "RECORD_AUDIO",
@@ -20,6 +22,9 @@
         "NSPhotoLibraryAddUsageDescription": "Gonderilen fotograflari cihaza kaydedebilmek icin izin gerekiyor.",
         "NSPhotoLibraryUsageDescription": "Guvenli alan analizi icin fotograf yukleyebilmemiz gerekiyor."
       }
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

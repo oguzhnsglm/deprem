@@ -4,7 +4,8 @@ import * as Location from 'expo-location';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
-import { getEmergencyContacts } from '../logic/contactsStore';
+import { getCurrentUser } from '../logic/authStore';
+import { loadContacts } from '../logic/contactsService';
 
 const EMERGENCY_NUMBERS = [
   { label: 'AFAD 122', value: '122' },
@@ -31,9 +32,8 @@ const resolveWhatsAppPhone = (contact) => {
 };
 
 const AlertScreen = ({ route }) => {
-  const { status = 'İyiyim', autoShare = false } = route.params || {};
+  const { status = 'İyiyim' } = route.params || {};
   const [whatsAppHint, setWhatsAppHint] = useState('');
-  const [autoShareTriggered, setAutoShareTriggered] = useState(false);
   const [recipientQueue, setRecipientQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [queueMessage, setQueueMessage] = useState('');
@@ -113,7 +113,8 @@ const AlertScreen = ({ route }) => {
   );
 
   const handleWhatsAppShare = useCallback(async () => {
-    const contacts = getEmergencyContacts();
+    const user = getCurrentUser();
+    const contacts = user ? await loadContacts(user.id) : [];
     if (!contacts.length) {
       setWhatsAppHint('Acil durum kişisi bulunamadı. Önce kişi ekleyin.');
       setRecipientQueue([]);
@@ -167,12 +168,6 @@ const AlertScreen = ({ route }) => {
     await openWhatsAppForRecipient(recipientQueue[nextIndex], queueMessage);
   }, [openWhatsAppForRecipient, queueIndex, queueMessage, recipientQueue]);
 
-  useEffect(() => {
-    if (autoShare && !autoShareTriggered) {
-      handleWhatsAppShare();
-      setAutoShareTriggered(true);
-    }
-  }, [autoShare, autoShareTriggered, handleWhatsAppShare]);
 
   const handleDial = (number) => {
     Linking.openURL(`tel:${number}`).catch(() => {});
@@ -217,7 +212,14 @@ const AlertScreen = ({ route }) => {
         </View>
 
         <View style={styles.whatsAppSection}>
-          {hasQueue ? (
+          {!hasQueue ? (
+            <PrimaryButton
+              title="Yakınlarıma bildirim gönder"
+              onPress={handleWhatsAppShare}
+              colorScheme={{ start: '#15803d', end: '#166534', shadow: '#14532d', ripple: 'rgba(21,128,61,0.35)' }}
+              style={styles.notifyButton}
+            />
+          ) : (
             <PrimaryButton
               title={nextButtonLabel}
               onPress={handleNextRecipient}
@@ -225,8 +227,8 @@ const AlertScreen = ({ route }) => {
               disabled={!hasNextRecipient}
               style={[styles.nextButton, !hasNextRecipient && styles.nextButtonDisabled]}
             />
-          ) : null}
-          <Text style={styles.whatsAppHint}>{whatsAppHint || defaultWhatsAppHint}</Text>
+          )}
+          {whatsAppHint ? <Text style={styles.whatsAppHint}>{whatsAppHint}</Text> : null}
         </View>
 
         <Text style={styles.note}>
@@ -327,6 +329,10 @@ const styles = StyleSheet.create({
   whatsAppSection: {
     marginVertical: 12,
     alignItems: 'center',
+  },
+  notifyButton: {
+    width: '85%',
+    marginBottom: 8,
   },
   whatsAppHint: {
     marginTop: 8,

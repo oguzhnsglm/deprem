@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Platform, StatusBar, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import StackNavigator from './navigation/StackNavigator';
 import BottomNavBar from './components/BottomNavBar';
 import { getProfilePreferences } from './logic/profileStore';
+import { initAuth } from './logic/authStore';
+import { loadProfile } from './logic/profileService';
 
 if (Platform.OS === 'web') {
   require('./src/styles/globals.css');
@@ -40,6 +42,14 @@ export default function App() {
   const [activeRouteName, setActiveRouteName] = useState();
   const activeTab = useMemo(() => mapRouteToTab(activeRouteName), [activeRouteName]);
   const preferredCity = getProfilePreferences().city || 'İstanbul';
+
+  useEffect(() => {
+    initAuth().then((user) => {
+      if (user) {
+        loadProfile(user.id);
+      }
+    });
+  }, []);
 
   const handleNavReady = () => {
     setActiveRouteName(navigationRef.getCurrentRoute()?.name);

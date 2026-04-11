@@ -182,7 +182,7 @@ app.get('/api/fault-distance', (req, res) => {
     distance_km: minKm,
     proximity_score: Math.max(0, Math.min(100, Math.round(100 - minKm))),
     level: minKm > 100 ? 'Dusuk' : minKm > 50 ? 'Orta' : 'Yuksek',
-    note: 'Hesaplama en yakŽñn fay segmentine yaklak mesafedir.',
+    note: 'Hesaplama en yakın fay segmentine yaklaşık mesafedir.',
   });
 });
 

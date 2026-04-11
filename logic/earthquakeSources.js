@@ -6,16 +6,14 @@ const TURKEY_BOUNDS = {
 };
 
 const SOURCE_DEFINITIONS = [
-  { key: 'afad', label: 'AFAD', fetcher: fetchAfadEvents },
-  { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents },
   { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents },
-  { key: 'emsc', label: 'EMSC', fetcher: fetchEmscEvents },
+  { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents },
   { key: 'iris', label: 'IRIS', fetcher: fetchIrisEvents },
 ];
 
-const DEFAULT_LOOKBACK_DAYS = 30;
+const DEFAULT_LOOKBACK_DAYS = 2;
 const DEFAULT_LIMIT_PER_SOURCE = 500;
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 60 * 1000;
 const aggregatedCache = new Map();
 
 const TURKISH_CHAR_MAP = {
@@ -33,25 +31,6 @@ const TURKISH_CHAR_MAP = {
   Ç: 'c',
 };
 
-const REGION_TRANSLATIONS = {
-  'CENTRAL TURKEY': 'Orta Türkiye',
-  'EASTERN TURKEY': 'Doğu Türkiye',
-  'WESTERN TURKEY': 'Batı Türkiye',
-  'SOUTHERN TURKEY': 'Güney Türkiye',
-  'NORTHERN TURKEY': 'Kuzey Türkiye',
-  'EASTERN MEDITERRANEAN SEA': 'Doğu Akdeniz',
-  'MEDITERRANEAN SEA': 'Akdeniz',
-  'AEGEAN SEA': 'Ege Denizi',
-  'MARMARA SEA': 'Marmara Denizi',
-  'BLACK SEA': 'Karadeniz',
-  'CYPRUS REGION': 'Kıbrıs Bölgesi',
-  'CYPRUS': 'Kıbrıs',
-  'GREECE': 'Yunanistan',
-  'GEORGIA': 'Gürcistan',
-  'IRAN': 'İran',
-  'IRAQ': 'Irak',
-  'SYRIA': 'Suriye',
-};
 
 const normalizeText = (value = '') =>
   value
@@ -142,12 +121,7 @@ const isWithinBounds = (latitude, longitude) => {
   if (latitude === null || longitude === null || latitude === undefined || longitude === undefined) {
     return true;
   }
-  return (
-    latitude >= TURKEY_BOUNDS.minLat - 1 &&
-    latitude <= TURKEY_BOUNDS.maxLat + 1 &&
-    longitude >= TURKEY_BOUNDS.minLon - 1 &&
-    longitude <= TURKEY_BOUNDS.maxLon + 1
-  );
+  return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 };
 
 const pickLocationText = (event = {}) => {
@@ -232,34 +206,6 @@ const fetchJson = async (url, options) => {
   return response.json();
 };
 
-async function fetchAfadEvents({ startDate, endDate, minMagnitude, limit }) {
-  const params = new URLSearchParams({
-    start: startDate.slice(0, 10),
-    end: endDate.slice(0, 10),
-    minmag: String(minMagnitude ?? 1),
-    orderby: 'desc',
-    limit: String(limit ?? 200),
-  });
-
-  const data = await fetchJson(`https://deprem.afad.gov.tr/apiv2/event/filter?${params.toString()}`);
-
-  return (Array.isArray(data) ? data : []).map((item) => ({
-    id: item.eventID,
-    source: 'AFAD',
-    time: ensureIsoString(item.date, 3),
-    magnitude: parseNumber(item.magnitude),
-    depthKm: parseNumber(item.depth),
-    latitude: parseNumber(item.latitude),
-    longitude: parseNumber(item.longitude),
-    location: item.location || item.neighborhood || item.district || item.province,
-    province: item.province,
-    city: item.province,
-    district: item.district,
-    flynnRegion: item.country,
-    eventType: item.type,
-  }));
-}
-
 async function fetchKandilliEvents() {
   const data = await fetchJson('https://api.orhanaydogdu.com.tr/deprem/kandilli/live');
   const results = Array.isArray(data?.result) ? data.result : [];
@@ -298,93 +244,44 @@ const parseClosestCity = (raw) => {
   return match[1].trim();
 };
 
-async function fetchUsgsEvents({ startDate, endDate, minMagnitude, limit }) {
-  const params = new URLSearchParams({
-    format: 'geojson',
-    starttime: startDate,
-    endtime: endDate,
-    minmagnitude: String(minMagnitude ?? 2.5),
-    minlatitude: String(TURKEY_BOUNDS.minLat),
-    maxlatitude: String(TURKEY_BOUNDS.maxLat),
-    minlongitude: String(TURKEY_BOUNDS.minLon),
-    maxlongitude: String(TURKEY_BOUNDS.maxLon),
-    orderby: 'time',
-    limit: String(limit ?? 200),
-  });
+// USGS real-time feed: dakikada bir güncellenir
+// all_day  → son 24 saat
+// all_week → son 7 gün
+const USGS_FEED_BASE = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary';
 
-  const data = await fetchJson(`https://earthquake.usgs.gov/fdsnws/event/1/query?${params.toString()}`);
+async function fetchUsgsEvents({ startDate, minMagnitude }) {
+  const minMag = Number(minMagnitude) >= 0 ? Number(minMagnitude) : 0;
+  const feedUrl = minMag >= 4.5
+    ? `${USGS_FEED_BASE}/4.5_week.geojson`
+    : minMag >= 2.5
+      ? `${USGS_FEED_BASE}/2.5_week.geojson`
+      : `${USGS_FEED_BASE}/all_week.geojson`;
+
+  const data = await fetchJson(feedUrl);
   const features = Array.isArray(data?.features) ? data.features : [];
 
-  return features.map((feature) => ({
-    id: feature.id,
-    source: 'USGS',
-    time: ensureIsoString(feature.properties?.time),
-    magnitude: parseNumber(feature.properties?.mag),
-    depthKm: parseNumber(feature.geometry?.coordinates?.[2]),
-    latitude: parseNumber(feature.geometry?.coordinates?.[1]),
-    longitude: parseNumber(feature.geometry?.coordinates?.[0]),
-    location: feature.properties?.place,
-    province: undefined,
-    city: undefined,
-    district: undefined,
-    flynnRegion: feature.properties?.place,
-    externalUrl: feature.properties?.url,
-  }));
-}
+  const cutoff = startDate ? new Date(startDate).getTime() : 0;
 
-const localizeRegion = (value) => {
-  if (!value) {
-    return { translated: value, original: value };
-  }
-  const upper = value.toUpperCase();
-  if (REGION_TRANSLATIONS[upper]) {
-    return { translated: REGION_TRANSLATIONS[upper], original: value };
-  }
-  const normalized = value
-    .toLowerCase()
-    .split(' ')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  return { translated: normalized, original: value };
-};
-
-async function fetchEmscEvents({ startDate, endDate, minMagnitude, limit }) {
-  const params = new URLSearchParams({
-    format: 'json',
-    starttime: startDate,
-    endtime: endDate,
-    minmag: String(minMagnitude ?? 2.5),
-    minlat: String(TURKEY_BOUNDS.minLat),
-    maxlat: String(TURKEY_BOUNDS.maxLat),
-    minlon: String(TURKEY_BOUNDS.minLon),
-    maxlon: String(TURKEY_BOUNDS.maxLon),
-    limit: String(limit ?? 200),
-    orderby: 'time',
-  });
-
-  const data = await fetchJson(`https://www.seismicportal.eu/fdsnws/event/1/query?${params.toString()}`);
-  const features = Array.isArray(data?.features) ? data.features : [];
-
-  return features.map((feature) => {
-    const region = feature.properties?.flynn_region;
-    const { translated, original } = localizeRegion(region);
-    const locationText = translated && original && translated !== original ? `${translated} (${original})` : translated || original;
-    return {
-      id: feature.id ?? feature.properties?.unid,
-      source: 'EMSC',
+  return features
+    .filter((feature) => {
+      const t = feature.properties?.time;
+      return t && t >= cutoff;
+    })
+    .map((feature) => ({
+      id: feature.id,
+      source: 'USGS',
       time: ensureIsoString(feature.properties?.time),
       magnitude: parseNumber(feature.properties?.mag),
-      depthKm: parseNumber(feature.properties?.depth ?? feature.geometry?.coordinates?.[2]),
+      depthKm: parseNumber(feature.geometry?.coordinates?.[2]),
       latitude: parseNumber(feature.geometry?.coordinates?.[1]),
       longitude: parseNumber(feature.geometry?.coordinates?.[0]),
-      location: locationText,
+      location: feature.properties?.place,
       province: undefined,
       city: undefined,
       district: undefined,
-      flynnRegion: region,
-      externalUrl: `https://www.emsc-csem.org/Earthquake/world/${feature.id ?? feature.properties?.unid}`,
-    };
-  });
+      flynnRegion: feature.properties?.place,
+      externalUrl: feature.properties?.url,
+    }));
 }
 
 async function fetchIrisEvents({ startDate, endDate, minMagnitude, limit }) {
