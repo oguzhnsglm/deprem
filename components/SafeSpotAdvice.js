@@ -5,6 +5,7 @@ const SafeSpotAdvice = ({ advice }) => {
   return (
     <View style={styles.wrapper}>
       <Text style={styles.title}>Güvenli Alan Tavsiyesi</Text>
+      <View style={styles.divider} />
       <Text style={styles.text}>{advice}</Text>
     </View>
   );
@@ -12,26 +13,28 @@ const SafeSpotAdvice = ({ advice }) => {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#f0fdf4',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-    marginTop: 24,
-    width: '90%',
+    marginTop: 16,
+    width: '100%',
     alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#065f46',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#38BDF8', // Sky 400 (or Emerald #34D399) - sticking to Sky for modern AI feel
     letterSpacing: 0.5,
-    marginBottom: 10,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  divider: {
+    display: 'none', // Kalın eski tarz çizgiyi gizle
   },
   text: {
     fontSize: 15,
-    color: '#064e3b',
-    lineHeight: 22,
+    color: '#94A3B8', // Slate 400
+    lineHeight: 24,
+    fontWeight: '500',
   },
 });
 

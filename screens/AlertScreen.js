@@ -6,12 +6,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
 import { getCurrentUser } from '../logic/authStore';
 import { loadContacts } from '../logic/contactsService';
-
-const EMERGENCY_NUMBERS = [
-  { label: 'AFAD 122', value: '122' },
-  { label: '112 Acil', value: '112' },
-  { label: 'Alo Deprem 184', value: '184' },
-];
+import { getCountryConfig } from '../logic/countryConfig';
 const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
 const normalizePhoneDigits = (value) => String(value || '').replace(/\D/g, '');
 const resolveWhatsAppPhone = (contact) => {
@@ -38,6 +33,8 @@ const AlertScreen = ({ route }) => {
   const [queueIndex, setQueueIndex] = useState(-1);
   const [queueMessage, setQueueMessage] = useState('');
   const profile = getProfilePreferences();
+  const countryConfig = getCountryConfig(profile.country || 'TR');
+  const emergencyNumbers = countryConfig.emergencyNumbers || [{ label: 'Acil', value: '112' }];
   const defaultWhatsAppHint =
     "WhatsApp üzerinden kayıtlı kişilerin sohbeti sırayla açılır; her sohbet için Gönder'e dokun. Sonraki kişi için Sıradaki kişi butonunu kullan.";
   const fullName = [profile.name, profile.surname]
@@ -198,16 +195,19 @@ const AlertScreen = ({ route }) => {
         </View>
 
         <View style={styles.emergencyButtons}>
-          {EMERGENCY_NUMBERS.map((item) => (
-            <TouchableOpacity
-              key={item.value}
-              style={styles.emergencyButton}
-              onPress={() => handleDial(item.value)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.emergencyButtonText}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
+          <View style={styles.emergencyRow}>
+            {emergencyNumbers.map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                style={styles.emergencyButton}
+                onPress={() => handleDial(item.value)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.emergencyButtonNumber}>{item.value}</Text>
+                <Text style={styles.emergencyButtonLabel}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <Text style={styles.emergencyHint}>Numaraya dokunduğunda telefon uygulaması açılır.</Text>
         </View>
 
@@ -244,108 +244,124 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 45, // Çentik (notch) payı eklendi
   },
   statusCard: {
-    backgroundColor: '#0f1114',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)', // Slate 900
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
-    elevation: 16,
-    marginBottom: 12,
+    elevation: 8,
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
     letterSpacing: 0.5,
-    color: '#f8fafc',
-    marginBottom: 14,
+    color: '#94A3B8', // Slate 400
+    marginBottom: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(14, 165, 233, 0.15)',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)', // Sky 400 tint
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#991b1b',
-    marginBottom: 16,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginBottom: 20,
   },
   statusText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#f8fafc',
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#38BDF8', // Sky 400
     letterSpacing: 0.6,
   },
   statusInfo: {
     fontSize: 15,
-    lineHeight: 22,
-    color: '#e5e7eb',
+    lineHeight: 24,
+    color: '#D1D5DB', // Slate 300
+    marginBottom: 16,
   },
   statusNote: {
-    marginTop: 8,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#f8fafc',
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#FCA5A5', // Red 300
+    fontWeight: '600',
   },
   emergencyButtons: {
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  emergencyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
   },
   emergencyButton: {
-    backgroundColor: '#7f1d1d',
-    borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    marginHorizontal: 24,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(8, 145, 178, 0.35)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    minWidth: 90,
   },
-  emergencyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+  emergencyButtonNumber: {
+    color: '#FCA5A5',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  emergencyButtonLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
   emergencyHint: {
     textAlign: 'center',
-    color: '#f8fafc',
-    marginTop: 4,
+    color: '#64748B',
+    marginTop: 10,
     fontSize: 12,
   },
-  note: {
-    fontSize: 13,
-    color: '#f59e0b',
-    lineHeight: 20,
-  },
   whatsAppSection: {
-    marginVertical: 12,
+    marginVertical: 16,
     alignItems: 'center',
   },
   notifyButton: {
-    width: '85%',
+    width: '90%',
     marginBottom: 8,
-  },
-  whatsAppHint: {
-    marginTop: 8,
-    textAlign: 'center',
-    color: '#e5e7eb',
-    fontSize: 13,
   },
   nextButton: {
     marginTop: 6,
-    width: '85%',
+    width: '90%',
   },
   nextButtonDisabled: {
     opacity: 0.6,
+  },
+  whatsAppHint: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  note: {
+    fontSize: 13,
+    color: '#64748B', // Slate 500
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    fontWeight: '500',
   },
 });
 

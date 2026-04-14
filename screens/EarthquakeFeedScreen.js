@@ -115,19 +115,12 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
   return (
     <ScreenWrapper>
       <View style={styles.container} {...(swipeResponder?.panHandlers || {})}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Deprem Gecmisi</Text>
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshMiniButton} activeOpacity={0.8}>
-            <Text style={styles.refreshMiniText}>Yenile</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
-          <View style={styles.selectorValueRow}>
-            <View>
-              <Text style={styles.selectorLabel}>Sehir</Text>
-              <Text style={styles.selectorValue}>{selectedCity}</Text>
-            </View>
-            <Text style={styles.selectorArrow}>v</Text>
+        <Text style={styles.title}>Türkiye Bölgesi Sarsıntıları</Text>
+        <TouchableOpacity style={styles.modernSelector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
+          <Text style={styles.modernSelectorLabel}>Görüntülenen Veri Seti:</Text>
+          <View style={styles.modernSelectorValueRow}>
+            <Text style={styles.modernSelectorValue}>{selectedCity}</Text>
+            <Text style={styles.modernSelectorArrow}>▼</Text>
           </View>
         </TouchableOpacity>
 
@@ -149,11 +142,13 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
           {events.slice(0, visibleCount).map((event) => (
             <View key={`${event.source}-${event.id}`} style={styles.eventCard}>
               <View style={styles.eventHeader}>
-                <Text style={styles.magnitude}>{Number(event.magnitude).toFixed(1)}</Text>
+                <View style={styles.magnitudeContainer}>
+                  <Text style={styles.magnitude}>{Number(event.magnitude).toFixed(1)}</Text>
+                </View>
                 <View style={styles.headerDetails}>
                   <Text style={styles.location}>{event.location}</Text>
                   <Text style={styles.meta}>
-                    {new Date(event.time).toLocaleString('tr-TR')} - {event.depthKm ?? '?'} km - {event.source}
+                    {new Date(event.time).toLocaleString('tr-TR')} • {event.depthKm ?? '?'} km • {event.source}
                   </Text>
                 </View>
               </View>
@@ -211,187 +206,200 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    padding: 20,
+    paddingTop: 45, // Çentik payı eklendi
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginBottom: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  refreshMiniButton: {
-    position: 'absolute',
-    right: 0,
-    top: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(187, 247, 208, 0.8)',
-    borderWidth: 1,
-    borderColor: '#86efac',
-  },
-  refreshMiniText: {
-    color: '#15803d',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  selector: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1f2933',
-    backgroundColor: '#120a0f',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  selectorValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  selectorLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    color: '#f8fafc',
-    marginBottom: 2,
-  },
-  selectorValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#f8fafc',
-  },
-  selectorArrow: {
-    marginLeft: 12,
-    fontSize: 30,
-    color: '#f97316',
+    fontSize: 20, // Küçültüldü
     fontWeight: '900',
+    color: '#F8FAFC',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  modernSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 6,
+  },
+  modernSelectorLabel: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  modernSelectorValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  modernSelectorValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#38BDF8', // Sky 400
+  },
+  modernSelectorArrow: {
+    marginLeft: 6,
+    fontSize: 10,
+    color: '#38BDF8',
   },
   errorText: {
-    color: '#f97316',
-    marginBottom: 8,
+    color: '#FCA5A5',
+    marginBottom: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: 160,
+    paddingBottom: 220, // Modern floating bar pass
   },
   eventCard: {
-    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)', // Deep Slate translucent
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#1f2933',
-    backgroundColor: '#0f1114',
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 10,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 10,
   },
   eventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flex: 1,
+  },
+  magnitudeContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 14,
+    marginRight: 14,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.08)',
   },
   magnitude: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#dc2626',
-    marginRight: 12,
+    color: '#e11d48', // Red 600 orjinal renk
+    fontSize: 22,
+    fontWeight: '700', // Eski ağırlık
   },
   headerDetails: {
     flex: 1,
+    gap: 6,
   },
   location: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#F1F5F9', // Slate 100
+    letterSpacing: 0.2,
   },
   meta: {
-    fontSize: 13,
-    color: '#f59e0b',
-  },
-  eventNote: {
-    fontSize: 13,
-    color: '#f97316',
+    fontSize: 12,
+    color: '#94A3B8', // Slate 400
+    fontWeight: '600',
   },
   empty: {
-    color: '#f8fafc',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 40,
+    lineHeight: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    padding: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   loadMoreButton: {
     alignItems: 'center',
     paddingVertical: 14,
+    marginTop: 10,
     marginBottom: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2933',
-    backgroundColor: '#0f1114',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
   },
   loadMoreText: {
-    color: '#f8fafc',
+    color: '#CBD5E1', // Slate 300
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(2, 6, 23, 0.85)', // Deep Slate backdrop
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#0f1114',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
-    maxHeight: '75%',
+    backgroundColor: '#0F172A', // Slate 900
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    padding: 24,
+    paddingTop: 32,
+    maxHeight: '80%',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   modalList: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   modalItem: {
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2933',
+    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
   },
   modalItemActive: {
-    backgroundColor: '#120a0f',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)', // Sky tint for active item
+    borderRadius: 12,
+    borderBottomWidth: 0,
+    marginTop: 4,
+    marginBottom: 4,
   },
   modalItemText: {
-    color: '#f8fafc',
+    color: '#94A3B8',
     fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   modalItemTextActive: {
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#38BDF8', // Sky 400
   },
   loader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginBottom: 20,
+    paddingVertical: 30,
   },
   loaderText: {
-    marginLeft: 8,
-    color: '#f8fafc',
+    marginLeft: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+    fontSize: 15,
   },
   allHint: {
     fontSize: 12,
-    color: '#f59e0b',
-    marginBottom: 8,
+    color: '#38BDF8',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });
 

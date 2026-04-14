@@ -3,6 +3,8 @@ let profileData = {
   threshold: 5,
   name: '',
   surname: '',
+  language: 'tr',
+  country: 'TR',
 };
 
 export const getProfilePreferences = () => profileData;

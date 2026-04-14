@@ -6,6 +6,7 @@ import BottomNavBar from './components/BottomNavBar';
 import { getProfilePreferences } from './logic/profileStore';
 import { initAuth } from './logic/authStore';
 import { loadProfile } from './logic/profileService';
+import { I18nProvider } from './i18n/index';
 
 if (Platform.OS === 'web') {
   require('./src/styles/globals.css');
@@ -41,7 +42,9 @@ export default function App() {
   const navigationRef = useNavigationContainerRef();
   const [activeRouteName, setActiveRouteName] = useState();
   const activeTab = useMemo(() => mapRouteToTab(activeRouteName), [activeRouteName]);
-  const preferredCity = getProfilePreferences().city || 'İstanbul';
+  const prefs = getProfilePreferences();
+  const preferredCity = prefs.city || 'İstanbul';
+  const initialLang = prefs.language || 'tr';
 
   useEffect(() => {
     initAuth().then((user) => {
@@ -60,13 +63,15 @@ export default function App() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0b0508' }}>
-      <StatusBar barStyle="light-content" />
-      <NavigationContainer theme={navigationTheme} ref={navigationRef} onReady={handleNavReady} onStateChange={handleStateChange}>
-        <StackNavigator />
-      </NavigationContainer>
-      <BottomNavBar navigation={navigationRef.current} activeTab={activeTab} city={preferredCity} floating />
-    </View>
+    <I18nProvider initialLang={initialLang}>
+      <View style={{ flex: 1, backgroundColor: '#0b0508' }}>
+        <StatusBar barStyle="light-content" />
+        <NavigationContainer theme={navigationTheme} ref={navigationRef} onReady={handleNavReady} onStateChange={handleStateChange}>
+          <StackNavigator />
+        </NavigationContainer>
+        <BottomNavBar navigation={navigationRef.current} activeTab={activeTab} city={preferredCity} floating />
+      </View>
+    </I18nProvider>
   );
 }
 

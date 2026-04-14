@@ -1,3 +1,11 @@
+import { fetchIngvEvents } from './sources/ingv';
+import { fetchGeoNetEvents } from './sources/geonet';
+import { fetchJmaEvents } from './sources/jma';
+import { fetchBmkgEvents } from './sources/bmkg';
+import { fetchNoaEvents } from './sources/noa';
+import { getCountryConfig } from './countryConfig';
+import { getProfilePreferences } from './profileStore';
+
 const TURKEY_BOUNDS = {
   minLat: 34.5,
   maxLat: 43.5,
@@ -5,11 +13,61 @@ const TURKEY_BOUNDS = {
   maxLon: 45.5,
 };
 
-const SOURCE_DEFINITIONS = [
-  { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents },
-  { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents },
-  { key: 'iris', label: 'IRIS', fetcher: fetchIrisEvents },
-];
+// USGS bbox filtreli çekme (ülkeye özel sınırlar)
+const fetchUsgsEventsBbox = (bounds) => async (params) => {
+  const features = await fetchUsgsEvents(params);
+  return features.filter((e) => {
+    const lat = e.latitude;
+    const lon = e.longitude;
+    if (lat == null || lon == null) return false;
+    return lat >= bounds.minLat && lat <= bounds.maxLat &&
+           lon >= bounds.minLon && lon <= bounds.maxLon;
+  });
+};
+
+// Ülkeye özel ek kaynak seçici
+const getCountrySourceDefinition = (sourceKey, bounds) => {
+  switch (sourceKey) {
+    case 'kandilli':
+      return { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents };
+    case 'ingv':
+      return { key: 'ingv', label: 'INGV', fetcher: fetchIngvEvents };
+    case 'geonet':
+      return { key: 'geonet', label: 'GeoNet', fetcher: fetchGeoNetEvents };
+    case 'jma':
+      return { key: 'jma', label: 'JMA', fetcher: fetchJmaEvents };
+    case 'bmkg':
+      return { key: 'bmkg', label: 'BMKG', fetcher: fetchBmkgEvents };
+    case 'noa':
+      return { key: 'noa', label: 'NOA', fetcher: fetchNoaEvents };
+    case 'usgs-bbox':
+      return bounds
+        ? { key: 'usgs-local', label: 'USGS (Yerel)', fetcher: fetchUsgsEventsBbox(bounds) }
+        : null;
+    default:
+      return null;
+  }
+};
+
+const buildSourceDefinitions = () => {
+  const prefs = getProfilePreferences();
+  const countryConfig = getCountryConfig(prefs.country || 'TR');
+  const countrySource = getCountrySourceDefinition(
+    countryConfig.sourceKey,
+    countryConfig.bounds
+  );
+
+  const definitions = [
+    { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents },
+  ];
+
+  // Ülkeye özel kaynak USGS'den farklıysa ekle
+  if (countrySource && countrySource.key !== 'usgs') {
+    definitions.push(countrySource);
+  }
+
+  return definitions;
+};
 
 const DEFAULT_LOOKBACK_DAYS = 2;
 const DEFAULT_LIMIT_PER_SOURCE = 500;
@@ -364,6 +422,8 @@ const getAggregatedEvents = async ({ lookbackDays, minMagnitude, limitPerSource 
   const minMag = Number(minMagnitude) >= 0 ? Number(minMagnitude) : 2;
   const limit = Number(limitPerSource) > 0 ? Number(limitPerSource) : DEFAULT_LIMIT_PER_SOURCE;
 
+  const SOURCE_DEFINITIONS = buildSourceDefinitions();
+
   const cacheKey = buildCacheKey({
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
@@ -446,4 +506,4 @@ export const fetchCityEarthquakes = async ({
 };
 
 export const getSourceMetaLabels = () =>
-  SOURCE_DEFINITIONS.map(({ key, label }) => ({ key, label }));
+  buildSourceDefinitions().map(({ key, label }) => ({ key, label }));

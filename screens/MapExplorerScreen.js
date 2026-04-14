@@ -1,10 +1,13 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, PanResponder, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, PanResponder, Platform, SafeAreaView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import * as Location from 'expo-location';
 import { computeTabOrder } from '../navigation/tabOrder';
+import { getProfilePreferences } from '../logic/profileStore';
+import { getCountryConfig } from '../logic/countryConfig';
 
 let MapView = null;
 let Marker = null;
+let UrlTile = null;
 const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
 
 const describeSoilStrength = (vs30) => {
@@ -12,18 +15,26 @@ const describeSoilStrength = (vs30) => {
     return null;
   }
   if (vs30 >= 1500) {
-    return 'Cok sert kaya; deprem dalgalarini pek buyutmez, yer ivmesi dusuk.';
+    return { level: 'Çok Düşük Risk', color: '#10B981', desc: 'Çok sert kaya; deprem dalgalarını pek büyütmez, yer ivmesi düşük.' };
   }
   if (vs30 >= 760) {
-    return 'Sert kaya; stabil, risk dusuk.';
+    return { level: 'Düşük Risk', color: '#34D399', desc: 'Sert kaya; stabil bir yapı sunar, yer sarsıntısı riski genel olarak düşüktür.' };
   }
   if (vs30 >= 360) {
-    return 'Orta sertlikte kaya/yari sert zemin; standart seviye, orta risk.';
+    return { level: 'Orta Risk', color: '#FACC15', desc: 'Orta sertlikte kaya/yarı sert zemin; standart seviye sarsıntı gözlenir.' };
   }
   if (vs30 >= 180) {
-    return 'Yumusak zemin; dalga buyutmesi belirgin, yapilar daha fazla sarsilir.';
+    return { level: 'Yüksek Risk', color: '#F87171', desc: 'Yumuşak zemin; dalga büyütmesi belirgindir, yapılar şiddetli sarsılır.' };
   }
-  return 'Cok yumusak/gevsek zemin; dalgalari kuvvetle buyutur, sivilasmas riski artar.';
+  return { level: 'Çok Yüksek Risk', color: '#EF4444', desc: 'Çok yumuşak/gevşek zemin; dalgaları kuvvetle büyütür ve sıvılaşma riski taşır.' };
+};
+
+const describeFaultRisk = (score) => {
+  if (score == null) return { level: 'Bilinmeyen Risk', color: '#94A3B8' };
+  if (score >= 90) return { level: 'Çok Yüksek Risk', color: '#EF4444' }; // 0-10 km, yüksek kayma
+  if (score >= 70) return { level: 'Yüksek Risk', color: '#F87171' }; // 10-30 km
+  if (score >= 40) return { level: 'Orta Risk', color: '#FACC15' }; // 30-60 km
+  return { level: 'Düşük Risk', color: '#34D399' }; // > 60 km
 };
 
 const fetchWithTimeout = async (url, { timeoutMs = 8000, ...options } = {}) => {
@@ -57,20 +68,25 @@ try {
     const Maps = require('react-native-maps');
     MapView = Maps.default;
     Marker = Maps.Marker || Maps.default?.Marker;
+    UrlTile = Maps.UrlTile || Maps.default?.UrlTile;
   }
 } catch (error) {
   console.warn('[MapExplorer] react-native-maps yuklenemedi:', error.message);
 }
 
-const DEFAULT_REGION = {
-  latitude: 41.015137,
-  longitude: 28.97953,
-  latitudeDelta: 0.2,
-  longitudeDelta: 0.2,
+const getDefaultRegion = () => {
+  const prefs = getProfilePreferences();
+  const country = getCountryConfig(prefs.country || 'TR');
+  const { minLat, maxLat, minLon, maxLon } = country.bounds;
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLon = (minLon + maxLon) / 2;
+  const latDelta = Math.max(0.2, (maxLat - minLat) * 0.35);
+  const lonDelta = Math.max(0.2, (maxLon - minLon) * 0.35);
+  return { latitude: centerLat, longitude: centerLon, latitudeDelta: latDelta, longitudeDelta: lonDelta };
 };
 
 const MapExplorerScreen = ({ navigation }) => {
-  const [region, setRegion] = useState(DEFAULT_REGION);
+  const [region, setRegion] = useState(getDefaultRegion);
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -82,6 +98,8 @@ const MapExplorerScreen = ({ navigation }) => {
   const [faultLoading, setFaultLoading] = useState(false);
   const [faultError, setFaultError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
+
+  const [showHazardMap, setShowHazardMap] = useState(false);
 
   const vs30ApiBaseRaw = process.env.EXPO_PUBLIC_VS30_API_BASE;
   const vs30ApiBase = normalizeBaseUrl(vs30ApiBaseRaw);
@@ -106,6 +124,14 @@ const MapExplorerScreen = ({ navigation }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
+        Alert.alert(
+          'Konum İzni Gerekli',
+          'Konumunu haritada göstermek için konum iznine ihtiyaç var. Ayarlardan izin verebilirsin.',
+          [
+            { text: 'Tamam', style: 'cancel' },
+            { text: 'Ayarlara Git', onPress: () => Linking.openSettings() },
+          ]
+        );
         setErrorMessage('Konum izni reddedildi. Manuel olarak haritada gezinebilirsin.');
         setLocating(false);
         return;
@@ -141,6 +167,10 @@ const MapExplorerScreen = ({ navigation }) => {
   useEffect(() => {
     console.log('[MapExplorer] bases', { vs30ApiBase, faultApiBase, fetchTimeoutMs });
     console.log('[MapExplorer] availability', { vs30Available, faultAvailable, canPickPoint, isNativePlatform });
+    const tileUrl = faultApiBase
+      ? `${faultApiBase}/tiles/hazard/{z}/{x}/{y}.png  ← YERELden`
+      : 'faultApiBase tanımsız — tile yüklenemiyor';
+    console.log('[MapExplorer] tile kaynağı:', tileUrl);
   }, [vs30ApiBase, faultApiBase, fetchTimeoutMs, vs30Available, faultAvailable, canPickPoint]);
 
   const navigateByDirection = useCallback(
@@ -189,6 +219,10 @@ const MapExplorerScreen = ({ navigation }) => {
     },
     []
   );
+
+  const toggleHazardMap = useCallback(() => {
+    setShowHazardMap((prev) => !prev);
+  }, []);
 
   const handleMapLongPress = useCallback(async (event) => {
     const coordinate = event?.nativeEvent?.coordinate;
@@ -257,6 +291,7 @@ const MapExplorerScreen = ({ navigation }) => {
     }
   }, [faultApiBase, faultAvailable, vs30ApiBase, vs30Available]);
 
+
   const overlayNote = useMemo(() => {
     if (!canPickPoint) {
       return 'Haritadan veri almak icin .env ayarlarini tamamlayin.';
@@ -282,8 +317,18 @@ const MapExplorerScreen = ({ navigation }) => {
               onLongPress={canPickPoint ? handleMapLongPress : undefined}
               onMapReady={() => setMapReady(true)}
             >
+              {showHazardMap && UrlTile && (
+                <UrlTile
+                  urlTemplate={`${faultApiBase}/tiles/hazard-tiff/{z}/{x}/{y}.png`}
+                  opacity={0.85}
+                  zIndex={1}
+                  minimumZ={1}
+                  maximumZ={12}
+                  maximumNativeZ={10}
+                />
+              )}
               {selectedSoilPoint && (
-                <Marker coordinate={selectedSoilPoint} pinColor="#f472b6" title="Vs30 olcum noktasi" />
+                <Marker coordinate={selectedSoilPoint} pinColor="#f472b6" />
               )}
             </MapView>
             {!mapReady ? (
@@ -317,11 +362,18 @@ const MapExplorerScreen = ({ navigation }) => {
                     <Text style={styles.vs30Coords}>
                       {vs30Info.lat?.toFixed(4)}, {vs30Info.lon?.toFixed(4)}
                     </Text>
-                    {typeof vs30Info.vs30 === 'number' && (
-                      <Text style={styles.vs30Hint}>{describeSoilStrength(vs30Info.vs30)}</Text>
-                    )}
+                    {typeof vs30Info.vs30 === 'number' && (() => {
+                      const soil = describeSoilStrength(vs30Info.vs30);
+                      if (!soil) return null;
+                      return (
+                        <Text style={styles.vs30Hint}>
+                          <Text style={{ color: soil.color, fontWeight: '800' }}>{soil.level}</Text>
+                          {` — ${soil.desc}`}
+                        </Text>
+                      );
+                    })()}
                     {vs30Info.vs30 == null && (
-                      <Text style={styles.vs30Hint}>Bu piksel icin Vs30 verisi bulunamadi.</Text>
+                      <Text style={styles.vs30Hint}>Bu lokasyon için Zemin Vs30 verisi bulunamadı.</Text>
                     )}
                   </>
                 ) : vs30Error ? (
@@ -333,7 +385,7 @@ const MapExplorerScreen = ({ navigation }) => {
 
               {isNativePlatform && (
                 <View style={styles.faultCard}>
-                  <Text style={styles.faultTitle}>Fay Yakinlik Analizi</Text>
+                  <Text style={styles.faultTitle}>Sismik Risk Analizi</Text>
                   {!faultAvailable ? (
                     <Text style={styles.faultHint}>.env icinde EXPO_PUBLIC_API_BASE tanimlamadan fay verisi alinmaz.</Text>
                   ) : faultLoading ? (
@@ -343,25 +395,54 @@ const MapExplorerScreen = ({ navigation }) => {
                     </View>
                   ) : faultInfo ? (
                     <>
-                      <Text style={styles.faultDistance}>
-                        {faultInfo.distance_km != null
-                          ? `En yakin fay uzakliginiz: ${faultInfo.distance_km.toFixed(1)} km`
-                          : 'En yakin fay uzakligi hesaplanamadi'}
-                      </Text>
-                      <Text style={styles.faultScore}>
-                        Fay Yakinlik Skoru: <Text style={styles.faultScoreValue}>{faultInfo.proximity_score ?? '--'}</Text>
-                        <Text style={styles.faultScoreHint}>/100 ({faultInfo.level ?? 'Bilinmiyor'})</Text>
-                      </Text>
+                      {/* Ana skor */}
+                      {(() => {
+                        const risk = describeFaultRisk(faultInfo.seismic_risk_score ?? faultInfo.proximity_score);
+                        return (
+                          <View style={styles.riskScoreRow}>
+                            <Text style={[styles.riskScoreBig, { color: risk.color }]}>
+                              {faultInfo.seismic_risk_score ?? faultInfo.proximity_score ?? '--'}
+                            </Text>
+                            <Text style={styles.riskScoreMax}>/100</Text>
+                            <View style={[styles.riskLevelBadge, { borderColor: risk.color + '55', backgroundColor: risk.color + '18' }]}>
+                              <Text style={[styles.riskLevelText, { color: risk.color }]}>{risk.level}</Text>
+                            </View>
+                          </View>
+                        );
+                      })()}
+
+                      {/* Bileşenler */}
+                      <View style={styles.riskComponents}>
+                        <View style={styles.riskComponentRow}>
+                          <Text style={styles.riskComponentLabel}>Aktif Fay</Text>
+                          <Text style={styles.riskComponentValue}>
+                            {faultInfo.distance_km != null ? `${faultInfo.distance_km} km` : '—'}
+                          </Text>
+                        </View>
+                        <View style={styles.riskComponentRow}>
+                          <Text style={styles.riskComponentLabel}>Kayma Hızı</Text>
+                          <Text style={styles.riskComponentValue}>
+                            {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} mm/yıl` : '—'}
+                          </Text>
+                        </View>
+                        {faultInfo.regional_hazard_score != null && (
+                          <View style={styles.riskComponentRow}>
+                            <Text style={styles.riskComponentLabel}>Bölgesel Tehlike</Text>
+                            <Text style={[styles.riskComponentValue, { color: '#FDE047' }]}>
+                              {faultInfo.regional_hazard_score}/100 (GEM)
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
                       <Text style={styles.faultNote}>{faultInfo.note}</Text>
                     </>
                   ) : faultError ? (
                     <Text style={styles.faultError}>{faultError}</Text>
                   ) : selectedSoilPoint ? (
-                    <Text style={styles.faultHint}>
-                      {selectedSoilPoint.latitude.toFixed(4)}, {selectedSoilPoint.longitude.toFixed(4)} - sonuc bekleniyor...
-                    </Text>
+                    <Text style={styles.faultHint}>Analiz hesaplaniyor...</Text>
                   ) : (
-                    <Text style={styles.faultHint}>Haritada uzun basarak fay analizini goster.</Text>
+                    <Text style={styles.faultHint}>Haritada uzun basarak sismik risk analizini goster.</Text>
                   )}
                 </View>
               )}
@@ -381,6 +462,16 @@ const MapExplorerScreen = ({ navigation }) => {
                 <Text style={styles.errorOverlayText}>{errorMessage}</Text>
               </View>
             )}
+
+            <TouchableOpacity
+              style={[styles.fab, showHazardMap && styles.fabActive]}
+              onPress={toggleHazardMap}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.fabText}>
+                {showHazardMap ? 'Haritayı Gizle' : 'Tehlike Haritası'}
+              </Text>
+            </TouchableOpacity>
           </>
         ) : (
           <View style={styles.mapFallback}>
@@ -398,202 +489,301 @@ const MapExplorerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#120a0f',
+    backgroundColor: '#0A0A0A',
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: '#120a0f',
+    backgroundColor: '#0A0A0A',
   },
   mapFallback: {
     flex: 1,
     padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(23, 23, 23, 0.65)',
   },
   mapFallbackTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#F9FAFB',
+    marginBottom: 12,
   },
   mapFallbackText: {
     textAlign: 'center',
-    color: '#cbd5e1',
-    lineHeight: 20,
+    color: '#9CA3AF',
+    lineHeight: 24,
+    fontSize: 15,
   },
   mapPlaceholder: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(12, 6, 8, 0.92)',
+    backgroundColor: 'rgba(10, 10, 12, 0.85)', // Dark blur
   },
   mapPlaceholderText: {
-    color: '#e2e8f0',
-    marginTop: 10,
+    color: '#D1D5DB', // Gray 300
+    marginTop: 12,
     fontWeight: '600',
+    fontSize: 16,
   },
   overlayStack: {
     position: 'absolute',
-    top: 20,
+    top: 24,
     left: 16,
     right: 16,
-    gap: 12,
+    gap: 16,
   },
   loadingOverlay: {
     position: 'absolute',
-    top: 20,
+    top: 24,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
+    backgroundColor: 'rgba(23, 23, 23, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   loadingText: {
-    color: '#f8fafc',
+    color: '#F9FAFB',
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 10,
+    fontSize: 14,
   },
   errorOverlay: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.92)',
-    padding: 12,
-    borderRadius: 16,
+    backgroundColor: 'rgba(220, 38, 38, 0.95)',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EF4444',
   },
   errorOverlayText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: '700',
     textAlign: 'center',
+    fontSize: 14,
   },
   vs30Card: {
-    backgroundColor: 'rgba(24, 24, 27, 0.9)',
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)', // Hem biraz daha mat hem transparan
+    borderRadius: 20, // Köşeler ufaltıldı
+    padding: 16, // Daraltıldı
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: 'rgba(255, 255, 255, 0.08)', 
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   vs30Title: {
-    color: '#f8fafc',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
+    color: '#94A3B8', // Slate 400
+    fontSize: 11, // Ufaltıldı
+    fontWeight: '800',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   vs30Row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
+    alignItems: 'baseline',
+    marginTop: 8, // Dar
   },
   vs30Value: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#f472b6',
+    fontSize: 26, // Bayağı küçültüldü
+    fontWeight: '900',
+    color: '#F472B6', // Pink 400
   },
   vs30Unit: {
-    color: '#f8fafc',
-    marginLeft: 8,
+    color: '#F1F5F9',
+    marginLeft: 6,
+    fontWeight: '700',
+    fontSize: 14,
   },
   vs30Coords: {
-    color: '#e0e7ff',
-    marginTop: 8,
-    fontSize: 13,
-  },
-  vs30Hint: {
-    color: '#e0e7ff',
+    color: '#64748B', 
     marginTop: 8,
     fontSize: 12,
+    fontWeight: '600',
+  },
+  vs30Hint: {
+    color: '#CBD5E1', 
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18,
   },
   vs30Error: {
-    color: '#f87171',
+    color: '#FCA5A5',
     marginTop: 8,
     fontWeight: '700',
+    fontSize: 12,
   },
   vs30Badge: {
-    marginLeft: 12,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(244, 114, 182, 0.2)',
+    marginLeft: 10,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(244, 114, 182, 0.1)', 
     borderWidth: 1,
-    borderColor: 'rgba(244, 114, 182, 0.6)',
+    borderColor: 'rgba(244, 114, 182, 0.3)',
+    alignSelf: 'center',
   },
   vs30BadgeText: {
-    color: '#fdf2f8',
-    fontWeight: '700',
+    color: '#FBCFE8',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   faultCard: {
-    backgroundColor: 'rgba(15, 23, 42, 0.94)',
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)', // Slate 900
+    borderRadius: 20, // Küçültüldü
+    padding: 16, // Küçültüldü
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: '#334155', // Slate 700
+    marginTop: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
   },
   faultTitle: {
-    color: '#bfdbfe',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
+    color: '#94A3B8', // Slate 400
+    fontSize: 11, // Küçültüldü
+    fontWeight: '800',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   faultRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 8, // Küçültüldü
+  },
+  riskScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     marginTop: 10,
+    gap: 6,
   },
-  faultDistance: {
-    color: '#e0f2fe',
+  riskScoreBig: {
+    fontSize: 36,
+    fontWeight: '900',
+    lineHeight: 40,
+  },
+  riskScoreMax: {
     fontSize: 16,
+    color: '#64748B',
     fontWeight: '700',
-    marginTop: 12,
+    marginBottom: 2,
   },
-  faultScore: {
-    color: '#bfdbfe',
-    marginTop: 8,
-    fontSize: 14,
+  riskLevelBadge: {
+    marginLeft: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'flex-end',
+    marginBottom: 4,
   },
-  faultScoreValue: {
-    fontSize: 20,
+  riskLevelText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#fde047',
+    letterSpacing: 0.4,
   },
-  faultScoreHint: {
+  riskComponents: {
+    marginTop: 10,
+    gap: 5,
+  },
+  riskComponentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  riskComponentLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  riskComponentValue: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  riskContainer: {
+    marginTop: 10,
+    alignItems: 'flex-start',
+  },
+  riskBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  riskBadgeText: {
+    fontWeight: '800',
     fontSize: 13,
-    color: '#e0f2fe',
+    letterSpacing: 0.5,
+  },
+  dimmedDesc: {
+    color: '#64748B', // Slate 500
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '500',
   },
   faultHint: {
-    color: '#bfdbfe',
-    marginTop: 10,
-    fontSize: 12,
+    color: '#CBD5E1',
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 20,
   },
   faultNote: {
-    marginTop: 8,
-    color: '#cbd5f5',
-    fontSize: 12,
+    marginTop: 10,
+    color: '#94A3B8',
+    fontSize: 13,
+    lineHeight: 20,
   },
   faultError: {
-    marginTop: 10,
-    color: '#f87171',
+    marginTop: 12,
+    color: '#FCA5A5',
     fontWeight: '700',
   },
   overlayNote: {
-    marginTop: 2,
-    color: '#cbd5e1',
-    fontSize: 12,
+    marginTop: 4,
+    color: '#6B7280',
+    fontSize: 11,
     textAlign: 'center',
+    fontWeight: '500',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  fabActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.90)',
+    borderColor: 'rgba(255, 100, 100, 0.4)',
+  },
+  fabText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
 });
 

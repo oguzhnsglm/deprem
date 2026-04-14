@@ -13,14 +13,14 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { getProfilePreferences } from '../logic/profileStore';
-import { ensureNotificationSetup } from '../logic/notificationService';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
 import { computeTabOrder } from '../navigation/tabOrder';
+import { useTranslation } from '../i18n/index';
 
-const formatEventMeta = (event) => {
+const formatEventMeta = (event, t) => {
   const dateValue = event?.time ? new Date(event.time) : null;
   const hasValidDate = dateValue && !Number.isNaN(dateValue.getTime());
-  const dateText = hasValidDate ? dateValue.toLocaleString('tr-TR') : 'Tarih bilinmiyor';
+  const dateText = hasValidDate ? dateValue.toLocaleString('tr-TR') : t('unknownDate');
 
   const distance =
     Number.isFinite(event?.distanceFromCityKm) && event.distanceFromCityKm > 0
@@ -28,7 +28,7 @@ const formatEventMeta = (event) => {
       : null;
 
   const depthText =
-    Number.isFinite(event?.depthKm) && event.depthKm > 0 ? `${event.depthKm} km` : 'Derinlik yok';
+    Number.isFinite(event?.depthKm) && event.depthKm > 0 ? `${event.depthKm} km` : t('noDepth');
 
   const trailing = distance || depthText;
   return `${dateText} · ${trailing}`;
@@ -57,6 +57,7 @@ const ActionButton = ({ label, onPress, variant = 'default' }) => (
 );
 
 const HomeScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const [prefs, setPrefs] = useState(getProfilePreferences());
   const [earthquakeState, setEarthquakeState] = useState({ events: [] });
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -114,10 +115,6 @@ const HomeScreen = ({ navigation }) => {
     };
   }, [loadRecentEvents]);
 
-  useEffect(() => {
-    ensureNotificationSetup();
-  }, []);
-
   const earthquakes = useMemo(
     () => (earthquakeState.events || []).filter((e) => e.source === 'USGS'),
     [earthquakeState.events]
@@ -171,75 +168,69 @@ const HomeScreen = ({ navigation }) => {
   ).current;
 
   return (
-    <ScreenWrapper variant="crimson">
+    <ScreenWrapper variant="modern">
       <StatusBar barStyle="light-content" />
       <View style={styles.root} {...(swipeResponder?.panHandlers || {})}>
-        <View style={styles.backgroundLayer}>
-          <View style={styles.backgroundGlowTop} />
-          <View style={styles.backgroundGlowBottom} />
-        </View>
+
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefreshEvents} tintColor="#f8fafc" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefreshEvents} tintColor="#38BDF8" />
           }
         >
-          <View style={styles.card}>
-            <View style={styles.appTitleWrapper}>
-              <Text style={styles.appTitle}>Deprem Rehberi</Text>
-              <View style={styles.appTitleDivider} />
+          <View style={styles.feedHeader}>
+            <View>
+              <Text style={styles.greetingText}>{t('greeting')}</Text>
+              <Text style={styles.sectionTitle}>{t('recentEarthquakes')}</Text>
             </View>
-
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Son Depremler</Text>
-              <Text style={styles.sourceLabel}>USGS</Text>
-            </View>
-
-            {isLoading ? (
-              <View style={styles.loaderRow}>
-                <ActivityIndicator color="#f97316" />
-                <Text style={styles.loadingText}>Veriler güncelleniyor...</Text>
-              </View>
-            ) : (
-              <View style={styles.alertCard}>
-                {hasNoEvents ? (
-                  <Text style={styles.emptyText}>{lastError || 'Bu aralıkta kayıt bulunamadı.'}</Text>
-                ) : (
-                  displayEvents.map((event) => (
-                    <View key={event.id} style={styles.alertRow}>
-                      <View style={styles.magnitudeBadge}>
-                        <Text style={styles.magnitudeText}>{Number(event.magnitude).toFixed(1)}</Text>
-                      </View>
-                      <View style={styles.alertDetails}>
-                        <Text style={styles.alertTitle}>{event.location}</Text>
-                        <Text style={styles.alertMeta}>{formatEventMeta(event)}</Text>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </View>
-            )}
-
-            {!isLoading && !hasNoEvents ? (
-              <TouchableOpacity
-                style={styles.moreButton}
-                onPress={() => navigation.navigate('EarthquakeFeed')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.moreButtonText}>Daha fazla göster</Text>
-              </TouchableOpacity>
-            ) : null}
+            <Text style={styles.sourceLabel}>{t('source')}</Text>
           </View>
+
+          {isLoading ? (
+            <View style={styles.loaderRow}>
+              <ActivityIndicator color="#38BDF8" size="large" />
+              <Text style={styles.loadingText}>{t('scanningEarthquakes')}</Text>
+            </View>
+          ) : (
+            <View style={styles.eventList}>
+              {hasNoEvents ? (
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyText}>{lastError || t('noData')}</Text>
+                </View>
+              ) : (
+                displayEvents.map((event) => (
+                  <View key={event.id} style={styles.eventCard}>
+                    <View style={styles.magnitudeContainer}>
+                      <Text style={styles.magnitudeText}>{Number(event.magnitude).toFixed(1)}</Text>
+                    </View>
+                    <View style={styles.alertDetails}>
+                      <Text style={styles.alertTitle}>{event.location}</Text>
+                      <Text style={styles.alertMeta}>{formatEventMeta(event, t)}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {!isLoading && !hasNoEvents ? (
+            <TouchableOpacity
+              style={styles.moreButton}
+              onPress={() => navigation.navigate('EarthquakeFeed')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.moreButtonText}>{t('showMore')}</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <View style={styles.quickActions}>
-            <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
-            <ActionButton label="Güvenli Alan Analizi" variant="success" onPress={() => navigation.navigate('SafeSpot')} />
-            <ActionButton label="Acil Durum" variant="danger" onPress={() => navigation.navigate('EmergencyStatus')} />
-            <ActionButton label="Acil Durum Kişileri" variant="success" onPress={() => navigation.navigate('Contacts')} />
+            <Text style={styles.actionsTitle}>{t('preparationTitle')}</Text>
+            <ActionButton label={t('safeSpotBtn')} variant="success" onPress={() => navigation.navigate('SafeSpot')} />
+            <ActionButton label={t('panicBtn')} variant="danger" onPress={() => navigation.navigate('EmergencyStatus')} />
+            <ActionButton label={t('contactsBtn')} variant="success" onPress={() => navigation.navigate('Contacts')} />
           </View>
         </ScrollView>
-
       </View>
     </ScreenWrapper>
   );
@@ -248,226 +239,166 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    paddingHorizontal: 20, // PanResponder catches edge properly now
+    paddingTop: 45, // Çentik (notch) payı ucu ucuna ayarlandı
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingTop: 24,
-    paddingBottom: 180,
+    paddingBottom: 220, // Alt barda kaybolmaması ve alta yapışmaması için büyük boşluk
   },
-  backgroundLayer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  backgroundGlowTop: {
-    position: 'absolute',
-    top: -160,
-    left: -120,
-    width: 360,
-    height: 360,
-    borderRadius: 260,
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
-  },
-  backgroundGlowBottom: {
-    position: 'absolute',
-    bottom: -220,
-    right: -120,
-    width: 420,
-    height: 420,
-    borderRadius: 280,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-  },
-  card: {
-    position: 'relative',
-    backgroundColor: 'rgba(10, 10, 12, 0.78)',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.55,
-    shadowRadius: 26,
-    elevation: 14,
-  },
-  sectionTitleRow: {
+  feedHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 0, // paddingTop eklendiği için bu sıfırlandı
+  },
+  greetingText: {
+    fontSize: 12, // Daha da ufak
+    color: '#94A3B8',
+    fontWeight: '600',
     marginBottom: 2,
   },
-  sourceLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#f97316',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    backgroundColor: 'rgba(249,115,22,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  moreButton: {
-    alignSelf: 'flex-end',
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  moreButtonText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  appTitleWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  appTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#f8fafc',
-    letterSpacing: 0.6,
-    textAlign: 'center',
-  },
-  appTitleDivider: {
-    width: 120,
-    height: 3,
-    marginTop: 8,
-    borderRadius: 999,
-    backgroundColor: '#c2410c',
-  },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontSize: 18, // Biraz daha küçüldü
+    fontWeight: '900',
+    color: '#F8FAFC',
+    letterSpacing: 0.3,
   },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#e5e7eb',
-    lineHeight: 20,
-    marginTop: 10,
+  sourceLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#38BDF8', // Sky 400
+    letterSpacing: 0.8,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
   },
   loaderRow: {
-    flexDirection: 'row',
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 14,
+    gap: 12,
   },
   loadingText: {
-    color: '#e2e8f0',
+    color: '#94A3B8',
     fontSize: 13,
-    marginLeft: 10,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  alertCard: {
-    marginTop: 16,
-    backgroundColor: '#0f1114',
+  eventList: {
+    gap: 10,
+  },
+  emptyCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
-    shadowRadius: 22,
-    elevation: 12,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
-  alertRow: {
+  emptyText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-  },
-  magnitudeBadge: {
-    width: 48,
-    height: 48,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     borderRadius: 16,
-    backgroundColor: '#7f1d1d',
+    padding: 14, // Ferahlatıldı
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  magnitudeContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    paddingRight: 16,
+    marginRight: 16,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.08)',
   },
   magnitudeText: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '800',
+    color: '#e11d48',
+    fontSize: 21, // Dengeli boyuta çekildi
+    fontWeight: '700',
   },
   alertDetails: {
     flex: 1,
+    gap: 4,
   },
   alertTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#e2e8f0',
+    fontSize: 14, // Okunabilir boyut
+    fontWeight: '800',
+    color: '#F1F5F9', // Slate 100
+    letterSpacing: 0.2,
   },
   alertMeta: {
     fontSize: 12,
-    color: '#cbd5e1',
-    marginTop: 2,
+    color: '#94A3B8', // Slate 400
+    fontWeight: '600',
   },
-  emptyText: {
-    color: '#e5e7eb',
-    fontSize: 13,
-    paddingVertical: 4,
+  moreButton: {
+    alignSelf: 'flex-start',
+    marginTop: 12, // Dar boşluk
+    paddingHorizontal: 12, // Tuşu ufalt
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  fallbackNote: {
-    color: '#fcd34d',
-    fontSize: 12,
-    marginTop: 10,
-  },
-  profileNote: {
-    color: '#d1d5db',
-    fontSize: 12,
-    marginTop: 12,
+  moreButtonText: {
+    color: '#CBD5E1', // Slate 300
+    fontSize: 12, // Fontunu küçült
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   quickActions: {
-    marginTop: 22,
-    alignItems: 'center',
+    marginTop: 24, // Yukarı çekildi
+  },
+  actionsTitle: {
+    fontSize: 18, // Biraz küçültüldü
+    fontWeight: '800',
+    color: '#F8FAFC',
+    marginBottom: 12, // Düşürüldü
   },
   actionButton: {
-    marginTop: 12,
-    backgroundColor: '#0f1114',
-    paddingVertical: 18,
-    borderRadius: 16,
+    marginBottom: 12,
+    backgroundColor: 'rgba(30, 41, 59, 0.5)', // Slate 800 tint
+    paddingVertical: 20,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#1f2933',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 12,
-    width: '85%',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   actionButtonDanger: {
-    backgroundColor: '#b91c1c',
-    borderColor: '#dc2626',
-    shadowColor: '#dc2626',
-    shadowOpacity: 0.7,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)', // Red tint
+    borderColor: 'rgba(220, 38, 38, 0.3)',
   },
   actionButtonSuccess: {
-    backgroundColor: '#0f2a1d',
-    borderColor: '#16a34a',
-    shadowColor: '#16a34a',
-    shadowOpacity: 0.55,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   actionButtonSuccessText: {
-    color: '#d1fae5',
+    color: '#34D399', // Emerald 400
   },
   actionButtonText: {
-    color: '#f8fafc',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   actionButtonDangerText: {
-    color: '#f8fafc',
+    color: '#FCA5A5',
   },
 });
 

@@ -1,13 +1,14 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const MapExplorerScreen = () => (
-  <SafeAreaView style={styles.safeArea}>
+  <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
     <View style={styles.container}>
       <Text style={styles.title}>Harita ve Risk</Text>
       <Text style={styles.body}>
-        Bu ekran harita bileşenlerine (react-native-maps) ihtiyaç duyuyor ve şu an web ortamında desteklenmiyor.
-        Lütfen iOS veya Android uygulamasını kullanın.
+        Bu ekran react-native-maps tabanli native harita bilesenlerine ihtiyac duyuyor ve su an web
+        ortaminda desteklenmiyor. Lutfen iOS veya Android uygulamasini kullanin.
       </Text>
     </View>
   </SafeAreaView>

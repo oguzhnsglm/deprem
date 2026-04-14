@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal,
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import PROVINCES from '../logic/provinces';
-import { getProfilePreferences } from '../logic/profileStore';
+import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
 import { computeTabOrder } from '../navigation/tabOrder';
 import { getCurrentUser } from '../logic/authStore';
 import { loadProfile, saveProfile } from '../logic/profileService';
+import { useTranslation, SUPPORTED_LANGUAGES } from '../i18n/index';
+import { COUNTRY_LIST, getCountryConfig } from '../logic/countryConfig';
 
 const CITY_OPTIONS = PROVINCES;
 
@@ -18,6 +20,7 @@ const InfoRow = ({ label, value }) => (
 );
 
 const ProfileScreen = ({ navigation }) => {
+  const { t, lang, setLang } = useTranslation();
   const storedPrefs = getProfilePreferences();
   const defaultCity = storedPrefs.city || CITY_OPTIONS[0] || 'İstanbul';
 
@@ -28,6 +31,8 @@ const ProfileScreen = ({ navigation }) => {
     age: '',
     address: '',
     threshold: storedPrefs.threshold || 3.0,
+    language: storedPrefs.language || 'tr',
+    country: storedPrefs.country || 'TR',
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +40,8 @@ const ProfileScreen = ({ navigation }) => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [langModalVisible, setLangModalVisible] = useState(false);
+  const [countryModalVisible, setCountryModalVisible] = useState(false);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -51,6 +58,8 @@ const ProfileScreen = ({ navigation }) => {
           address: data.address || '',
           city: data.city || defaultCity,
           threshold: data.threshold || 3.0,
+          language: data.language || 'tr',
+          country: data.country || 'TR',
         });
         setIsFilled(true);
         setIsEditing(false);
@@ -111,12 +120,15 @@ const ProfileScreen = ({ navigation }) => {
       const ok = await saveProfile(user.id, profile);
       setSaving(false);
       if (!ok) {
-        setError('Kaydedilemedi, internet bağlantını kontrol et.');
+        setError(t('saveFailed'));
         return;
       }
     } else {
       setSaving(false);
     }
+    // Dil ve ülke tercihlerini global store'a yaz
+    setProfilePreferences({ language: profile.language, country: profile.country });
+    setLang(profile.language);
     setIsFilled(true);
     setIsEditing(false);
   };
@@ -163,7 +175,13 @@ const ProfileScreen = ({ navigation }) => {
               <View style={styles.divider} />
               <InfoRow label="Adres" value={profile.address} />
               <View style={styles.divider} />
-              <InfoRow label="Bildirim Eşiği" value={`M ${Number(profile.threshold).toFixed(1)} ve üzeri`} />
+              <InfoRow label={t('notifLabel')} value={t('andAbove', { val: Number(profile.threshold).toFixed(1) })} />
+              <View style={styles.divider} />
+              <InfoRow label={t('language')} value={`${SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.flag} ${SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.label}`} />
+              <View style={styles.divider} />
+              <InfoRow label={t('country')} value={`${getCountryConfig(profile.country)?.flag} ${getCountryConfig(profile.country)?.name}`} />
+              <View style={styles.divider} />
+              <InfoRow label={t('dataSource')} value={getCountryConfig(profile.country)?.sourceLabel} />
             </View>
           ) : null}
 
@@ -204,13 +222,31 @@ const ProfileScreen = ({ navigation }) => {
                 onChangeText={(t) => handleInputChange('address', t)}
               />
 
-              <Text style={styles.label}>Şehrim</Text>
+              <Text style={styles.label}>{t('myCity')}</Text>
               <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
                 <Text style={styles.selectorValue}>{profile.city}</Text>
-                <Text style={styles.selectorHint}>Değiştir</Text>
+                <Text style={styles.selectorHint}>{t('change')}</Text>
               </TouchableOpacity>
 
-              <Text style={styles.label}>Bildirim Eşiği</Text>
+              <Text style={styles.label}>{t('language')}</Text>
+              <TouchableOpacity style={styles.selector} onPress={() => setLangModalVisible(true)} activeOpacity={0.85}>
+                <Text style={styles.selectorValue}>
+                  {SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.flag}{' '}
+                  {SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.label}
+                </Text>
+                <Text style={styles.selectorHint}>{t('change')}</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.label}>{t('country')}</Text>
+              <TouchableOpacity style={styles.selector} onPress={() => setCountryModalVisible(true)} activeOpacity={0.85}>
+                <Text style={styles.selectorValue}>
+                  {getCountryConfig(profile.country)?.flag}{' '}
+                  {getCountryConfig(profile.country)?.name}
+                </Text>
+                <Text style={styles.selectorHint}>{t('change')}</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.label}>{t('notifThreshold')}</Text>
               <View style={styles.thresholdRow}>
                 {[1.0, 2.0, 3.0, 4.0, 5.0].map((val) => (
                   <TouchableOpacity
@@ -253,7 +289,7 @@ const ProfileScreen = ({ navigation }) => {
         <Modal visible={cityModalVisible} animationType="slide" transparent onRequestClose={() => setCityModalVisible(false)}>
           <View style={styles.modalBackdrop}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Şehrini seç</Text>
+              <Text style={styles.modalTitle}>{t('selectCity')}</Text>
               <ScrollView style={styles.modalList}>
                 {CITY_OPTIONS.map((city) => {
                   const active = city === profile.city;
@@ -268,7 +304,60 @@ const ProfileScreen = ({ navigation }) => {
                   );
                 })}
               </ScrollView>
-              <PrimaryButton title="Kapat" onPress={() => setCityModalVisible(false)} />
+              <PrimaryButton title={t('close')} onPress={() => setCityModalVisible(false)} />
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={langModalVisible} animationType="slide" transparent onRequestClose={() => setLangModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{t('selectLanguage')}</Text>
+              <ScrollView style={styles.modalList}>
+                {SUPPORTED_LANGUAGES.map((langItem) => {
+                  const active = langItem.code === profile.language;
+                  return (
+                    <TouchableOpacity
+                      key={langItem.code}
+                      style={[styles.modalItem, active && styles.modalItemActive]}
+                      onPress={() => { handleInputChange('language', langItem.code); setLangModalVisible(false); }}
+                    >
+                      <Text style={[styles.modalItemText, active && styles.modalItemTextActive]}>
+                        {langItem.flag}  {langItem.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <PrimaryButton title={t('close')} onPress={() => setLangModalVisible(false)} />
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={countryModalVisible} animationType="slide" transparent onRequestClose={() => setCountryModalVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{t('selectCountry')}</Text>
+              <ScrollView style={styles.modalList}>
+                {COUNTRY_LIST.map((c) => {
+                  const active = c.code === profile.country;
+                  return (
+                    <TouchableOpacity
+                      key={c.code}
+                      style={[styles.modalItem, active && styles.modalItemActive]}
+                      onPress={() => { handleInputChange('country', c.code); setCountryModalVisible(false); }}
+                    >
+                      <Text style={[styles.modalItemText, active && styles.modalItemTextActive]}>
+                        {c.flag}  {c.name}
+                      </Text>
+                      {active && (
+                        <Text style={styles.sourceHintText}>{c.sourceLabel}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <PrimaryButton title={t('close')} onPress={() => setCountryModalVisible(false)} />
             </View>
           </View>
         </Modal>
@@ -279,130 +368,131 @@ const ProfileScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   gestureWrapper: { flex: 1 },
-  scroll: { padding: 24, paddingBottom: 160 },
+  scroll: { padding: 20, paddingTop: 45, paddingBottom: 220 }, // Çentik (notch) ve alt boşluk
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#b91c1c',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)', // Sky tint
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
-    borderWidth: 2,
-    borderColor: '#7f1d1d',
-  },
-  avatarText: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  headerText: { flex: 1 },
-  headerName: { color: '#f8fafc', fontSize: 20, fontWeight: '800' },
-  headerCity: { color: '#f97316', fontSize: 13, fontWeight: '600', marginTop: 2 },
-  headerHint: { color: '#9ca3af', fontSize: 13, marginTop: 2 },
-  editButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
+    marginRight: 16,
     borderWidth: 1,
-    borderColor: '#374151',
-    backgroundColor: '#1f2937',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  editButtonText: { color: '#e5e7eb', fontSize: 13, fontWeight: '600' },
+  avatarText: { color: '#38BDF8', fontSize: 24, fontWeight: '900' },
+  headerText: { flex: 1 },
+  headerName: { color: '#F8FAFC', fontSize: 22, fontWeight: '900', letterSpacing: 0.5 },
+  headerCity: { color: '#38BDF8', fontSize: 13, fontWeight: '800', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }, // Sky 400
+  headerHint: { color: '#94A3B8', fontSize: 13, marginTop: 4 },
+  editButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)', // Slate 900
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  editButtonText: { color: '#F8FAFC', fontSize: 13, fontWeight: '800' },
 
   card: {
-    backgroundColor: '#0f1114',
-    borderRadius: 24,
-    padding: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)', // Slate 900
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowRadius: 16,
+    elevation: 8,
   },
 
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
-  infoLabel: { color: '#6b7280', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoValue: { color: '#f8fafc', fontSize: 15, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
-  divider: { height: 1, backgroundColor: '#1f2933' },
+  infoLabel: { color: '#94A3B8', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { color: '#F8FAFC', fontSize: 15, fontWeight: '700', maxWidth: '60%', textAlign: 'right' },
+  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.03)' },
 
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#f8fafc', marginBottom: 14 },
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: '#F8FAFC', marginBottom: 20, letterSpacing: 0.3 },
   fieldRow: { flexDirection: 'row', gap: 12 },
   input: {
     flex: 1,
-    backgroundColor: '#120a0f',
-    borderRadius: 14,
+    backgroundColor: '#020617', // Deepest Slate
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#1f2933',
-    color: '#f8fafc',
-    marginBottom: 12,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#F8FAFC',
+    marginBottom: 14,
     fontSize: 15,
   },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  label: { fontSize: 13, fontWeight: '700', color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  multiline: { minHeight: 90, textAlignVertical: 'top' },
+  label: { fontSize: 12, fontWeight: '800', color: '#94A3B8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
   selector: {
-    backgroundColor: '#120a0f',
-    borderRadius: 14,
+    backgroundColor: '#020617',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#991b1b',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 16,
-    paddingVertical: 13,
-    marginBottom: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  selectorValue: { color: '#f8fafc', fontSize: 15, fontWeight: '700' },
-  selectorHint: { color: '#f97316', fontWeight: '600', fontSize: 13 },
+  selectorValue: { color: '#F8FAFC', fontSize: 15, fontWeight: '800' },
+  selectorHint: { color: '#38BDF8', fontWeight: '800', fontSize: 13 },
 
-  thresholdRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  thresholdRow: { flexDirection: 'row', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
   thresholdChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2933',
-    backgroundColor: '#120a0f',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
-  thresholdChipActive: { backgroundColor: 'rgba(185,28,28,0.2)', borderColor: '#b91c1c' },
-  thresholdText: { color: '#6b7280', fontWeight: '700', fontSize: 13 },
-  thresholdTextActive: { color: '#f87171' },
+  thresholdChipActive: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)' },
+  thresholdText: { color: '#94A3B8', fontWeight: '700', fontSize: 14 },
+  thresholdTextActive: { color: '#FCA5A5', fontWeight: '900' },
 
-  errorText: { color: '#dc2626', marginBottom: 10, fontWeight: '600', fontSize: 13 },
+  errorText: { color: '#FCA5A5', marginBottom: 14, fontWeight: '700', fontSize: 13 },
 
-  buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   cancelButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#374151',
-    backgroundColor: '#1f2937',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
   },
-  cancelButtonText: { color: '#e5e7eb', fontWeight: '700' },
+  cancelButtonText: { color: '#F1F5F9', fontWeight: '800' },
   saveButtonWrap: { flex: 1 },
   saveButtonFull: { flex: 1 },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#0f1114', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '75%' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#f8fafc', marginBottom: 12 },
-  modalList: { marginBottom: 16 },
-  modalItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1f2933' },
-  modalItemActive: { backgroundColor: '#120a0f' },
-  modalItemText: { color: '#f8fafc', fontSize: 16 },
-  modalItemTextActive: { fontWeight: '700', color: '#f97316' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.85)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#0F172A', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, paddingTop: 32, maxHeight: '80%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: '#F8FAFC', marginBottom: 20, textAlign: 'center' },
+  modalList: { marginBottom: 24 },
+  modalItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.03)' },
+  modalItemActive: { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderRadius: 12, borderBottomWidth: 0, marginTop: 4, marginBottom: 4 },
+  modalItemText: { color: '#94A3B8', fontSize: 16, textAlign: 'center', fontWeight: '600' },
+  modalItemTextActive: { fontWeight: '800', color: '#38BDF8' },
+  sourceHintText: { color: '#38BDF8', fontSize: 11, textAlign: 'center', marginTop: 2, fontWeight: '600' },
 });
 
 export default ProfileScreen;

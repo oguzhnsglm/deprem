@@ -14,7 +14,8 @@
         "CAMERA",
         "READ_MEDIA_IMAGES",
         "READ_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.oguzhnsglm.deprem"
     },
     "ios": {
       "infoPlist": {

@@ -1,38 +1,54 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Animated, Pressable, Text, StyleSheet } from 'react-native';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const COLOR_SCHEMES = {
   primary: {
-    start: '#7f1d1d',
-    end: '#b91c1c',
-    shadow: '#450a0a',
-    ripple: 'rgba(248, 113, 113, 0.3)',
+    start: '#EF4444', // Red 500
+    end: '#DC2626',   // Red 600
+    border: '#B91C1C',
+    shadow: '#7F1D1D',
+    text: '#ffffff',
+    ripple: 'rgba(255, 255, 255, 0.2)',
   },
   mint: {
-    start: '#34d399',
-    end: '#059669',
-    shadow: '#064e3b',
+    start: '#10B981', // Emerald 500
+    end: '#059669',   // Emerald 600
+    border: '#047857',
+    shadow: '#064E3B',
+    text: '#ffffff',
     ripple: 'rgba(255, 255, 255, 0.2)',
   },
   danger: {
-    start: '#991b1b',
-    end: '#7f1d1d',
-    shadow: '#450a0a',
-    ripple: 'rgba(239, 68, 68, 0.4)',
+    start: '#DC2626', // Red 600
+    end: '#991B1B',   // Red 800
+    border: '#7F1D1D',
+    shadow: '#450A0A',
+    text: '#ffffff',
+    ripple: 'rgba(255, 255, 255, 0.3)',
   },
   location: {
-    start: '#4ade80',
-    end: '#16a34a',
-    shadow: '#14532d',
+    start: '#3B82F6', // Blue 500
+    end: '#2563EB',   // Blue 600
+    border: '#1D4ED8',
+    shadow: '#1E3A8A',
+    text: '#ffffff',
     ripple: 'rgba(255, 255, 255, 0.2)',
   },
+  outline: {
+    start: 'rgba(255, 255, 255, 0.03)',
+    end: 'rgba(255, 255, 255, 0.08)',
+    border: 'rgba(255, 255, 255, 0.15)',
+    shadow: 'transparent',
+    text: '#F3F4F6', // Gray 100
+    ripple: 'rgba(255, 255, 255, 0.1)',
+  }
 };
 
 const PrimaryButton = ({ title, onPress, style, textStyle, colorScheme = 'primary', ...rest }) => {
   const scale = useRef(new Animated.Value(1)).current;
-  const glow = useRef(new Animated.Value(0)).current;
+  
   const scheme = useMemo(() => {
     if (typeof colorScheme === 'string') {
       return COLOR_SCHEMES[colorScheme] || COLOR_SCHEMES.primary;
@@ -40,54 +56,38 @@ const PrimaryButton = ({ title, onPress, style, textStyle, colorScheme = 'primar
     return {
       start: colorScheme.start || COLOR_SCHEMES.primary.start,
       end: colorScheme.end || COLOR_SCHEMES.primary.end,
+      border: colorScheme.border || COLOR_SCHEMES.primary.border,
       shadow: colorScheme.shadow || COLOR_SCHEMES.primary.shadow,
+      text: colorScheme.text || COLOR_SCHEMES.primary.text,
       ripple: colorScheme.ripple || COLOR_SCHEMES.primary.ripple,
     };
   }, [colorScheme]);
 
-  useEffect(() => {
-    const pulsate = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, { toValue: 1, duration: 2400, useNativeDriver: false }),
-        Animated.timing(glow, { toValue: 0, duration: 2400, useNativeDriver: false }),
-      ])
-    );
-    pulsate.start();
-    return () => pulsate.stop();
-  }, [glow]);
-
-  const backgroundColor = glow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [scheme.start, scheme.end],
-  });
-
-  const shadowOpacity = glow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.18, 0.32],
-  });
+  const backgroundColor = scheme.start;
+  const shadowOpacity = 0.25;
 
   const handlePressIn = () => {
     Animated.spring(scale, {
-      toValue: 0.95,
-      useNativeDriver: false,
-      speed: 20,
-      bounciness: 6,
+      toValue: 0.92,
+      useNativeDriver: true,
+      speed: 25,
+      bounciness: 10,
     }).start();
   };
 
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: false,
-      speed: 16,
-      bounciness: 7,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 8,
     }).start();
   };
 
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      android_ripple={{ color: scheme.ripple }}
+      android_ripple={{ color: scheme.ripple, borderless: false }}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -96,36 +96,36 @@ const PrimaryButton = ({ title, onPress, style, textStyle, colorScheme = 'primar
         style,
         {
           transform: [{ scale }],
-          backgroundColor,
-          shadowOpacity,
+          backgroundColor: colorScheme === 'outline' ? scheme.end : backgroundColor,
+          borderColor: scheme.border,
+          shadowOpacity: colorScheme === 'outline' ? 0 : shadowOpacity,
           shadowColor: scheme.shadow,
         },
       ]}
       {...rest}
     >
-      <Text style={[styles.text, textStyle]}>{title}</Text>
+      <Text style={[styles.text, { color: scheme.text }, textStyle]}>{title}</Text>
     </AnimatedPressable>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 18,
+    borderRadius: 16,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
-    elevation: 6,
-    shadowColor: '#04121d',
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
+    marginVertical: 8,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
   },
   text: {
-    color: '#ffffff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textAlign: 'center',
   },
 });

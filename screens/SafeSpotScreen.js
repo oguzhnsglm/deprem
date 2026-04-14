@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, Image, ActivityIndicator, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -7,14 +7,84 @@ import SafeSpotAdvice from '../components/SafeSpotAdvice';
 import { getMockSafeSpotAdvice } from '../logic/mockSafeSpotAnalysis';
 import { analyzeSafeSpotPhoto } from '../logic/safeSpotAnalyzer';
 
+// Çök-kapan-tutun pozisyonunda kişi figürü
+const FetalFigure = () => (
+  <View style={fetalStyles.wrapper}>
+    {/* Baş */}
+    <View style={fetalStyles.head} />
+    {/* Gövde — eğilmiş */}
+    <View style={fetalStyles.body}>
+      <View style={fetalStyles.spine} />
+      {/* Dizler çekilmiş */}
+      <View style={fetalStyles.knees} />
+    </View>
+    <Text style={fetalStyles.label}>En Güvenli</Text>
+  </View>
+);
+
+const fetalStyles = StyleSheet.create({
+  wrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+  },
+  head: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#34D399',
+    marginBottom: 2,
+  },
+  body: {
+    alignItems: 'center',
+  },
+  spine: {
+    width: 4,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: '#34D399',
+    transform: [{ rotate: '30deg' }],
+  },
+  knees: {
+    width: 10,
+    height: 6,
+    borderRadius: 5,
+    backgroundColor: '#34D399',
+    marginTop: -3,
+    transform: [{ rotate: '-20deg' }],
+  },
+  label: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#34D399',
+    marginTop: 3,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+});
+
 const SafeSpotScreen = () => {
   const [analysis, setAnalysis] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const [imageDimensions, setImageDimensions] = useState(null); // orijinal piksel boyutu
+  const [containerSize, setContainerSize] = useState(null);     // ekrandaki kutu boyutu
   const [statusMessage, setStatusMessage] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const openAiAnalysis = analysis;
   const openAiIsAi = openAiAnalysis?.source === 'ai';
+
+  const handleContainerLayout = useCallback((e) => {
+    const { width, height } = e.nativeEvent.layout;
+    setContainerSize({ width, height });
+  }, []);
+
+  // En yüksek güven skoruna sahip, bounds'u olan zone = cenin figürü gösterilecek yer
+  const safestZoneId = useMemo(() => {
+    const zones = openAiAnalysis?.safeZones?.filter((z) => z.bounds) ?? [];
+    if (!zones.length) return null;
+    return zones.reduce((best, z) => (z.confidence > best.confidence ? z : best), zones[0])?.id;
+  }, [openAiAnalysis]);
 
   const advice = useMemo(
     () => analysis?.summary ?? getMockSafeSpotAdvice(),
@@ -45,14 +115,15 @@ const SafeSpotScreen = () => {
     return true;
   };
 
-  const analyzePhoto = async (photoUri) => {
+  const analyzePhoto = async (photoUri, dims) => {
     setCapturedPhoto(photoUri);
+    setImageDimensions(dims ?? null);
     setIsAnalyzing(true);
-    setStatusMessage('Fotoğraf OpenAI ile analiz ediliyor...');
+    setStatusMessage('Fotoğraf yapay zeka ile analiz ediliyor...');
     setErrorMessage('');
 
     try {
-      const aiResult = await analyzeSafeSpotPhoto(photoUri);
+      const aiResult = await analyzeSafeSpotPhoto(photoUri, dims);
       setAnalysis(aiResult);
 
       const hasAnyAiResult = aiResult?.source === 'ai';
@@ -88,13 +159,13 @@ const SafeSpotScreen = () => {
         return;
       }
 
-      const photoUri = result.assets?.[0]?.uri;
-      if (!photoUri) {
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
         Alert.alert('Hata', 'Fotoğraf seçilemedi.');
         return;
       }
 
-      await analyzePhoto(photoUri);
+      await analyzePhoto(asset.uri, { width: asset.width, height: asset.height });
     } catch (error) {
       console.warn('Galeri hatası:', error);
       Alert.alert('Hata', 'Galeriden fotoğraf seçilirken bir sorun oluştu.');
@@ -118,34 +189,44 @@ const SafeSpotScreen = () => {
         return;
       }
 
-      const photoUri = result.assets?.[0]?.uri;
-      if (!photoUri) {
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
         Alert.alert('Hata', 'Fotoğraf alınamadı.');
         return;
       }
 
-      await analyzePhoto(photoUri);
+      await analyzePhoto(asset.uri, { width: asset.width, height: asset.height });
     } catch (error) {
       console.warn('Kamera hatası:', error);
       Alert.alert('Hata', 'Fotoğraf çekilirken bir sorun oluştu.');
     }
   };
 
-  const overlayStyle = (bounds) => {
-    if (!bounds) {
-      return {};
-    }
+  // Piksel koordinatlarını ekran üzerindeki konuma çevirir.
+  // resizeMode="contain" ile görüntü letterbox'lanabilir; offsetX/Y bunu telafi eder.
+  const overlayStyle = useCallback((bounds) => {
+    if (!bounds || !imageDimensions || !containerSize) return { display: 'none' };
+    const { width: origW, height: origH } = imageDimensions;
+    const { width: contW, height: contH } = containerSize;
+    if (!origW || !origH || !contW || !contH) return { display: 'none' };
+
+    const scale = Math.min(contW / origW, contH / origH);
+    const displayW = origW * scale;
+    const displayH = origH * scale;
+    const offsetX = (contW - displayW) / 2;
+    const offsetY = (contH - displayH) / 2;
+
     return {
-      left: `${bounds.x * 100}%`,
-      top: `${bounds.y * 100}%`,
-      width: `${bounds.width * 100}%`,
-      height: `${bounds.height * 100}%`,
+      left: offsetX + bounds.x * scale,
+      top: offsetY + bounds.y * scale,
+      width: bounds.width * scale,
+      height: bounds.height * scale,
     };
-  };
+  }, [imageDimensions, containerSize]);
 
   return (
     <ScreenWrapper>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
@@ -190,7 +271,9 @@ const SafeSpotScreen = () => {
             {openAiAnalysis && (
               <View style={styles.previewCard}>
                 <View style={styles.providerHeader}>
-                  <Text style={styles.providerTitle}>{openAiAnalysis.provider || 'OpenAI GPT-4'}</Text>
+                  <Text style={styles.providerTitle}>
+                    {openAiAnalysis.provider || (openAiIsAi ? 'Yapay Zeka Analizi' : 'Genel Rehber')}
+                  </Text>
                   {openAiAnalysis.error && (
                     <View style={styles.errorBox}>
                       <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
@@ -203,17 +286,28 @@ const SafeSpotScreen = () => {
                     <Text style={styles.noticeText}>{openAiAnalysis.notice}</Text>
                   </View>
                 ) : null}
-                <View style={styles.imageWrapper}>
-                  <Image 
-                    source={{ uri: capturedPhoto }} 
+                <View style={styles.imageWrapper} onLayout={handleContainerLayout}>
+                  <Image
+                    source={{ uri: capturedPhoto }}
                     style={styles.previewImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                   {openAiIsAi &&
                     openAiAnalysis.safeZones?.map((zone) =>
                       zone.bounds ? (
-                        <View key={zone.id} style={[styles.overlayBox, overlayStyle(zone.bounds)]}>
-                          <Text style={styles.overlayLabel}>{zone.label}</Text>
+                        <View
+                          key={zone.id}
+                          style={[
+                            styles.overlayBox,
+                            overlayStyle(zone.bounds),
+                            zone.id === safestZoneId && styles.overlayBoxSafest,
+                          ]}
+                        >
+                          {zone.id === safestZoneId ? (
+                            <FetalFigure />
+                          ) : (
+                            <Text style={styles.overlayLabel}>{zone.label}</Text>
+                          )}
                         </View>
                       ) : null
                     )}
@@ -267,215 +361,267 @@ const SafeSpotScreen = () => {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 220,
   },
   photoCard: {
-    backgroundColor: '#0f1114',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 24,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#1f2933',
-    marginBottom: 12,
-    marginTop: 12,
-    width: '90%',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 16,
+    marginTop: 45,
+    width: '100%',
     alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 4,
+    marginTop: 8,
   },
   buttonWrapper: {
     flex: 1,
   },
   tallButton: {
-    paddingVertical: 26,
+    paddingVertical: 24,
+    borderRadius: 20,
   },
   photoTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 10,
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   photoText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#f59e0b',
-    marginBottom: 14,
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#94A3B8',
+    marginBottom: 20,
   },
   photoHint: {
-    marginTop: 12,
+    marginTop: 14,
     fontSize: 13,
-    color: '#f8fafc',
+    color: '#34D399',
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   errorText: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 13,
-    color: '#991b1b',
+    color: '#FCA5A5',
+    fontWeight: '700',
+    textAlign: 'center',
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
+    marginTop: 16,
   },
   loadingText: {
-    marginLeft: 8,
-    fontSize: 13,
-    color: '#f8fafc',
+    marginLeft: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   previewCard: {
-    backgroundColor: '#0f1114',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 24,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#fed7aa',
-    marginBottom: 16,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    marginBottom: 20,
+    width: '100%',
+    alignSelf: 'center',
+    marginTop: 45,
   },
   previewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#9a3412',
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#38BDF8',
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
   imageWrapper: {
     position: 'relative',
     width: '100%',
     aspectRatio: 4 / 3,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: '#000',
+    marginBottom: 16,
+    backgroundColor: '#020617',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   previewImage: {
     width: '100%',
     height: '100%',
   },
-
   providerHeader: {
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 16,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#fed7aa',
+    borderBottomColor: 'rgba(56, 189, 248, 0.2)',
   },
   providerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#9a3412',
+    fontWeight: '900',
+    color: '#38BDF8',
     marginBottom: 8,
   },
   errorBox: {
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 16,
+    borderRadius: 16,
+    marginTop: 12,
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   errorTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#991b1b',
-    marginBottom: 6,
+    fontWeight: '800',
+    color: '#FCA5A5',
+    marginBottom: 8,
   },
   providerError: {
     fontSize: 14,
-    color: '#7f1d1d',
-    lineHeight: 20,
+    color: '#FECACA',
+    lineHeight: 22,
   },
   noticeBox: {
-    backgroundColor: '#fef3c7',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#fbbf24',
-    marginBottom: 12,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    marginBottom: 16,
   },
   noticeText: {
     fontSize: 14,
-    color: '#92400e',
-    lineHeight: 20,
+    color: '#FDE68A',
+    lineHeight: 22,
+    fontWeight: '600',
   },
   overlayBox: {
     position: 'absolute',
-    borderWidth: 3,
-    borderColor: 'rgba(59, 130, 246, 1)',
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(56, 189, 248, 0.7)',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 10,
+  },
+  overlayBoxSafest: {
+    borderWidth: 3,
+    borderColor: 'rgba(52, 211, 153, 0.9)',
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    shadowColor: '#34D399',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   overlayLabel: {
-    color: '#f97316',
-    fontWeight: '700',
-    fontSize: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    color: '#0369A1',
+    fontWeight: '900',
+    fontSize: 13,
+    backgroundColor: 'rgba(186, 230, 253, 0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   sectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#9a3412',
-    marginBottom: 14,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
   zoneRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
   zoneBadge: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#34d399',
-    marginTop: 5,
-    marginRight: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#38BDF8',
+    marginTop: 6,
+    marginRight: 12,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
   zoneTextWrapper: {
     flex: 1,
   },
   zoneLabel: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#166534',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    marginBottom: 6,
   },
   zoneGuidance: {
-    fontSize: 15,
-    color: '#14532d',
+    fontSize: 14,
+    color: '#94A3B8',
     lineHeight: 22,
   },
   zoneConfidence: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0f766e',
-    marginLeft: 8,
+    fontWeight: '900',
+    color: '#38BDF8',
+    marginLeft: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
   riskRow: {
-    marginBottom: 14,
+    marginBottom: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.15)',
   },
   riskLabel: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#b45309',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#FCA5A5',
+    marginBottom: 6,
   },
   riskDetail: {
-    fontSize: 15,
-    color: '#92400e',
-    lineHeight: 22,
+    fontSize: 14,
+    color: '#FECACA',
+    lineHeight: 24,
   },
 });
 

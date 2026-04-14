@@ -1,412 +1,356 @@
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 
-const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini';
-const OPENAI_DEFAULT_API_URL = 'https://api.openai.com/v1/chat/completions';
-
 const getEnvValue = (key) => {
   const extra = Constants?.expoConfig?.extra ?? {};
   return extra[key] ?? process.env?.[key];
 };
 
-const rawModel =
+const PROVIDER =
+  getEnvValue('EXPO_PUBLIC_SAFE_SPOT_PROVIDER') ??
+  getEnvValue('safeSpotProvider') ??
+  'openai';
+
+const MODEL_NAME =
+  getEnvValue('EXPO_PUBLIC_SAFE_SPOT_MODEL') ??
   getEnvValue('safeSpotModel') ??
-  getEnvValue('SAFE_SPOT_MODEL') ??
-  getEnvValue('EXPO_PUBLIC_SAFE_SPOT_MODEL');
+  (PROVIDER === 'gemini' ? 'gemini-2.0-flash-exp' : 'gpt-4o-mini');
 
-const MODEL_NAME = rawModel || OPENAI_DEFAULT_MODEL;
-
-const sharedKey = getEnvValue('safeSpotApiKey') ?? getEnvValue('SAFE_SPOT_API_KEY');
+const GEMINI_KEY =
+  getEnvValue('EXPO_PUBLIC_GEMINI_API_KEY') ??
+  getEnvValue('safeSpotGeminiKey');
 
 const OPENAI_KEY =
-  sharedKey ||
-  getEnvValue('safeSpotOpenAiKey') ||
-  getEnvValue('SAFE_SPOT_OPENAI_KEY') ||
-  getEnvValue('EXPO_PUBLIC_OPENAI_API_KEY');
+  getEnvValue('EXPO_PUBLIC_OPENAI_API_KEY') ??
+  getEnvValue('safeSpotOpenAiKey');
 
-const API_KEY = OPENAI_KEY;
+const API_KEY = PROVIDER === 'gemini' ? GEMINI_KEY : OPENAI_KEY;
 
-const rawApiUrl =
-  getEnvValue('safeSpotApiUrl') ??
-  getEnvValue('SAFE_SPOT_API_URL') ??
-  getEnvValue('EXPO_PUBLIC_SAFE_SPOT_API_URL');
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
-const API_URL = rawApiUrl || OPENAI_DEFAULT_API_URL;
-
-const clamp01 = (value) => {
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) {
-    return 0;
-  }
-  if (numeric < 0) {
-    return 0;
-  }
-  if (numeric > 1) {
-    return 1;
-  }
-  return numeric;
-};
+// ── Yardımcılar ────────────────────────────────────────────────────────────
 
 const readImageAsBase64 = async (uri) => {
-  if (!uri) {
-    throw new Error('Fotoğraf bulunamadı');
-  }
+  if (!uri) throw new Error('Fotoğraf bulunamadı');
   try {
-    // expo-file-system için encoding string olarak belirtilmeli
-    const base64String = await FileSystem.readAsStringAsync(uri, { 
-      encoding: 'base64'
-    });
-    return base64String;
+    return await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
   } catch (error) {
-    console.error('[readImageAsBase64] Hata:', error);
     throw new Error(`Fotoğraf okunamadı: ${error.message}`);
   }
 };
 
-const normalizeBounds = (bounds = {}) => {
-  const width = clamp01(bounds.width ?? 0.4);
-  const height = clamp01(bounds.height ?? 0.3);
-  return {
-    x: clamp01(bounds.x ?? 0.1),
-    y: clamp01(bounds.y ?? 0.2),
-    width,
-    height,
-  };
+const clampBounds = (bounds, imgW, imgH) => {
+  const x = Math.max(0, Math.min(Number(bounds.x) || 0, imgW - 10));
+  const y = Math.max(0, Math.min(Number(bounds.y) || 0, imgH - 10));
+  const width = Math.max(10, Math.min(Number(bounds.width) || 60, imgW - x));
+  const height = Math.max(10, Math.min(Number(bounds.height) || 80, imgH - y));
+  return { x, y, width, height };
 };
 
-const normalizeSafeZones = (safeZones = []) =>
+const parseSafeZones = (safeZones = [], imgW, imgH) =>
   safeZones
-    .map((zone, index) => {
+    .map((zone, i) => {
       const hasBounds = zone.bounds && typeof zone.bounds === 'object';
+      const bounds = hasBounds ? clampBounds(zone.bounds, imgW, imgH) : null;
+      if (bounds && (bounds.width < 5 || bounds.height < 5)) return null;
       return {
-        id: zone.id ?? `zone-${index}`,
+        id: zone.id ?? `zone-${i}`,
         label: zone.label ?? 'Güvenli Alan',
-        guidance:
-          zone.guidance ??
-          'Dayanıklı bir mobilya yanına çök-kapan-tutun pozisyonuyla yerleş.',
-        confidence: Number(zone.confidence ?? 0.5),
-        bounds: hasBounds ? normalizeBounds(zone.bounds) : null,
+        guidance: zone.guidance ?? 'Çök-kapan-tutun pozisyonunu uygula.',
+        confidence: Math.max(0, Math.min(1, Number(zone.confidence ?? 0.5))),
+        priority: Number(zone.priority ?? i + 1),
+        bounds,
       };
     })
-    .filter((zone) => !zone.bounds || (zone.bounds.width > 0 && zone.bounds.height > 0));
+    .filter(Boolean);
 
-const normalizeRisks = (risks = []) =>
-  risks.map((risk, index) => ({
-    id: risk.id ?? `risk-${index}`,
+const parseRisks = (risks = []) =>
+  risks.map((risk, i) => ({
+    id: risk.id ?? `risk-${i}`,
     label: risk.label ?? 'Riskli Bölge',
-    detail:
-      risk.detail ??
-      'Cam yüzeyler, devrilebilecek dolaplar ve ağır objelerden uzak dur.',
+    detail: risk.detail ?? 'Bu bölgeden uzak dur.',
   }));
 
-const SAFE_ZONE_LABELS = [
-  'Dayanıklı Masa Yanı',
-  'Kanonun Güçlü Köşesi',
-  'Sabit Kitaplık Yanı',
-  'Kapı Yanı Taşıyıcı Duvar',
-  'Alçak Komodin Bölgesi',
-];
+// ── Örnek veri (API yoksa) ─────────────────────────────────────────────────
 
-const SAFE_ZONE_GUIDANCE = [
-  'Dizlerinin üstünde çök, başını kolunla koru ve sabit mobilyaya tutun.',
-  'Çök-kapan-tutun pozisyonunu alırken cam yüzeylerden uzak dur.',
-  'Baş hizasındaki objeleri kontrol et ve sağlam yüzeye yaslan.',
-  'Omuzlarını duvara yaslayıp mümkün olduğunca alçak kal.',
-  'Çantana veya yastığa başını yaslayıp dizlerini bük.',
-];
-
-const RISK_LABELS = ['Pencere Bölgesi', 'Sabitlenmemiş Dolap', 'Aydınlatma Elemanı', 'Elektrikli Cihaz'];
-
-const RISK_DETAILS = [
-  'Cam kırılması riskine karşı 1-2 metre uzak kal.',
-  'Devrilme riskine karşı dolabın önünü boş bırak.',
-  'Sallanabilecek avizelerin altından uzak dur.',
-  'Elektrik kabloları ve prizlerin yanına diz çökme.',
-];
-
-const SAMPLE_SAFE_ZONE_GUIDES = [
+const FALLBACK_ZONES = [
   {
-    id: 'guide-sturdy-furniture',
-    label: 'Örnek: Sabit mobilya yanında pozisyon al',
-    guidance:
-      'Çök-kapan-tutun pozisyonunu devrilmeyecek masa, çalışma masası veya komodin yanında uygula.',
+    id: 'guide-table',
+    label: 'Sağlam Masa veya Tezgah Altı',
+    guidance: 'Varsa sağlam bir masanın altına gir, bir ayağını tut. Masa seni dökülen molozdan korur.',
+    confidence: 0.3,
+    priority: 1,
+    bounds: null,
   },
   {
-    id: 'guide-door-frame',
-    label: 'Örnek: Taşıyıcı duvar/kapı kasası kenarı',
-    guidance:
-      'Kapı kasası gibi taşıyıcı bir duvar köşesinde dizlerinin üzerine çök ve başını kollarınla koru.',
+    id: 'guide-sofa',
+    label: 'Alçak Koltuk veya Kanepe Yanı',
+    guidance: 'Alçak bir koltuk ya da kanepenin YANINA (altına değil) cenin pozisyonunda çök. Kanepe çökme boşluğu yaratır.',
+    confidence: 0.3,
+    priority: 2,
+    bounds: null,
   },
   {
-    id: 'guide-low-furniture',
-    label: 'Örnek: Alçak ve sabit koltuk/kanepe yanı',
-    guidance:
-      'Alçak bir koltuk veya kanepe minderinin yanında kalıp hareketli eşyalardan uzak dur.',
+    id: 'guide-wall',
+    label: 'İç Duvar Köşesi',
+    guidance: 'İki iç duvarın birleştiği köşeye geç, başını ve enseni kollarınla koru. Dışa bakan duvarlardan uzak dur.',
+    confidence: 0.3,
+    priority: 3,
+    bounds: null,
   },
 ];
 
-const SAMPLE_RISK_GUIDES = [
-  {
-    id: 'risk-windows',
-    label: 'Pencere ve cam yüzeyler',
-    detail: 'Cam kırılması riskine karşı 1-2 metre uzak kal.',
-  },
-  {
-    id: 'risk-wardrobe',
-    label: 'Sabitlenmemiş dolaplar',
-    detail: 'Devrilebilecek yüksek mobilyaların önünü boş tut ve yanına yaklaşma.',
-  },
-  {
-    id: 'risk-lighting',
-    label: 'Aydınlatma elemanları',
-    detail: 'Sallanabilecek avize veya lambaların altında bekleme.',
-  },
+const FALLBACK_RISKS = [
+  { id: 'risk-windows', label: 'Pencere ve Cam Yüzeyler', detail: 'Depremde cam kırılır ve büyük parçalar fırlar. En az 1.5 metre uzak kal.' },
+  { id: 'risk-wardrobe', label: 'Sabitlenmemiş Yüksek Mobilya', detail: 'Dolap, kitaplık ve vitrinin devrilme kuvveti bir insanı ezer. Önünde durma.' },
+  { id: 'risk-lights', label: 'Tavan Armatürleri', detail: 'Avize, sarkıt lamba ve fanlar sarılarak düşer. Altında bekleme.' },
 ];
 
-const fallbackAnalysis = (reason) => {
-  const notice =
+const fallbackAnalysis = (reason) => ({
+  summary: 'Gerçek zamanlı analiz yapılamadı. En yakın sağlam masanın altına gir; yoksa alçak bir koltuk yanına cenin pozisyonunda çök. Pencerelerden ve yüksek mobilyalardan uzak dur.',
+  notice:
     reason === 'missing-key'
-      ? 'Yapay zeka anahtarı tanımlı olmadığı için fotoğraf analiz edilemedi. Aşağıdaki rehber gerçek odana ait değildir.'
-      : 'Fotoğraf analiz edilirken sorun oluştu. Aşağıdaki rehber genel deprem güvenlik prensiplerini hatırlatır.';
+      ? 'Yapay zeka anahtarı tanımlı olmadığı için analiz yapılamadı. Aşağıda genel deprem güvenliği rehberi gösteriliyor.'
+      : 'Fotoğraf analiz edilirken hata oluştu. Genel rehber gösteriliyor.',
+  safeZones: FALLBACK_ZONES,
+  risks: FALLBACK_RISKS,
+  source: reason === 'missing-key' ? 'fallback-missing-key' : 'fallback-error',
+  provider: null,
+  imageWidth: null,
+  imageHeight: null,
+});
 
-  return {
-    summary:
-      'Fotoğraf üzerinde gerçek zamanlı güvenli alan belirlenemedi. Çök-kapan-tutun tekniğini sabit ve devrilmeyecek mobilyalar yanında uygulayıp pencerelerden uzak dur.',
-    notice,
-    safeZones: normalizeSafeZones(
-      SAMPLE_SAFE_ZONE_GUIDES.map((guide) => ({ ...guide, confidence: 0.3, bounds: null }))
-    ),
-    risks: normalizeRisks(SAMPLE_RISK_GUIDES),
-    source: reason === 'missing-key' ? 'fallback-missing-key' : 'fallback-error',
-  };
-};
+// ── Prompt ─────────────────────────────────────────────────────────────────
 
-const buildPrompt = () => `
-Deprem güvenliği uzmanı olarak, fotoğraftaki odayı analiz et ve "ÇÖK-KAPAN-TUTUN" tekniğini uygulayabileceğin GÜVENLİ alanları ve TEHLİKELİ bölgeleri belirle.
+const buildPrompt = (imageWidth, imageHeight) => `
+You are an earthquake safety expert. Analyze this room photo and identify the safest spots to apply "Drop, Cover, and Hold On" technique.
 
-## GÜVENLİ ALAN KRİTERLERİ:
-1. **Sağlam Masa/Mobilya Yanı**: Ağır, sabit masalar veya güçlü mobilyaların yanı. Kişi dizleri üzerinde çöküp başını koruyabilmeli.
-2. **Taşıyıcı Duvar Köşeleri**: İç duvar köşeleri, özellikle kapı kasaları. Yapısal destek sağlar.
-3. **Alçak, Sağlam Mobilya**: Koltuk, kanepe yanı gibi düşük ve sabit nesneler.
-4. **Sabitlenmiş Kitaplık/Dolap Yanı**: Duvara monte edilmiş, devrilme riski olmayan mobilyalar.
+IMAGE SIZE: ${imageWidth} × ${imageHeight} pixels.
+COORDINATE SYSTEM: Origin (0,0) is TOP-LEFT. x increases RIGHT, y increases DOWN. All values are in PIXELS.
 
-## TEHLİKELİ BÖLGELER:
-- **Pencereler ve Camlar**: Kırılma riski yüksek
-- **Aynalar ve Cam Yüzeyler**: Parçalanabilir
-- **Sabitlenmemiş Dolaplar**: Devrilme riski
-- **Avize/Sarkıt Altı**: Düşme riski
-- **Ağır Objeler**: Düşebilecek ağır tablolar, raflar
+═══ SAFE SPOT PRIORITY (use this exact order) ═══
 
-## ÇÖK-KAPAN-TUTUN TEKNİĞİ:
-- Dizler üzerine çök
-- Başını ve enseni kollarınla koru
-- Sabit bir yüzeye/mobilyaya tutun
-- Sarsıntı bitene kadar bu pozisyonda kal
+PRIORITY 1 — Under a sturdy table or desk (BEST)
+  Person crouches UNDER the table, holds one leg firmly.
+  The table top shields from falling debris (ceiling plaster, light fixtures, small objects).
+  Look for: dining tables, coffee tables, desks, heavy side tables with solid tops.
+  bounds = the floor space UNDER the table where a person's body fits (~60×80 cm).
 
-## GÖREV:
-Fotoğraftaki odayı detaylıca incele ve SADECE JSON formatında yanıt ver:
+PRIORITY 2 — Beside a heavy, low sofa or armchair (GOOD)
+  Person crouches in fetal position NEXT TO (not under) the sofa, ideally between sofa and an interior wall.
+  The sofa mass creates a survival void if the ceiling partially collapses.
+  Important: must be LOW enough that person is beside it, not under a raised sofa frame.
+  bounds = the floor area immediately beside the sofa where the person would crouch.
 
+PRIORITY 3 — Corner of two interior walls (ACCEPTABLE)
+  Person crouches facing the corner, arms over head and neck.
+  Interior walls (not exterior-facing) provide the most structural integrity.
+  Only use if no furniture options exist AND no shelves/windows are nearby.
+  bounds = the corner floor area (~60×60 cm).
+
+PRIORITY 4 — Beside a structural column (LAST RESORT)
+  Only if none of the above are available in the visible space.
+
+═══ NEVER RECOMMEND THESE LOCATIONS ═══
+- Within 1.5m of any window or glass door (glass shatters with force)
+- Near tall unsecured furniture: wardrobes, bookshelves, display cases (topple and crush)
+- Under or near ceiling fixtures: chandeliers, pendant lights, ceiling fans (fall risk)
+- Near exterior walls (first structural elements to fail)
+- Kitchen/pantry areas (shelves violently empty)
+- Near large mirrors or heavy framed art (glass and impact)
+- Near televisions, monitors on stands (topple and screen shatter)
+- Near fireplaces (chimney collapse)
+
+═══ RULES FOR bounds ═══
+- bounds is where the PERSON CROUCHES — their body footprint on the floor (~60-100px wide, ~80-120px tall at this image scale)
+- NOT the whole furniture piece. Just where the human body goes.
+- Estimate pixel positions carefully from what you actually see.
+- If you are not confident about a zone's position, set confidence below 0.6 and still try.
+- Do NOT invent zones for furniture you cannot clearly see.
+
+Respond ONLY with valid JSON, no extra text:
 {
-  "summary": "Odanın Türkçe detaylı açıklaması: mobilyalar, pencereler, alan düzeni ve en güvenli noktalar",
+  "summary": "Turkish: 1-2 sentences describing the room and your single strongest recommendation",
   "safeZones": [
     {
-      "id": "unique-id",
-      "label": "Güvenli Alan Adı (örn: Çalışma Masası Yanı, Kanepe Köşesi, Kapı Kasası)",
-      "confidence": 0.75,
-      "guidance": "Bu alanda nasıl pozisyon alınacağına dair detaylı Türkçe talimat",
-      "bounds": { 
-        "x": 0.1,
-        "y": 0.2, 
-        "width": 0.3,
-        "height": 0.25
-      }
+      "id": "zone-1",
+      "label": "Turkish label referencing the specific furniture (e.g. 'Ahşap Masanın Altı')",
+      "priority": 1,
+      "guidance": "Turkish: Exactly what to do — reference a visible landmark so the person knows where to go",
+      "confidence": 0.85,
+      "bounds": { "x": 120, "y": 300, "width": 90, "height": 110 }
     }
   ],
   "risks": [
-    { 
-      "id": "risk-id",
-      "label": "Tehlike Adı (örn: Pencere Bölgesi, Avize Altı)",
-      "detail": "Bu bölgenin neden tehlikeli olduğuna dair Türkçe açıklama"
+    {
+      "id": "risk-1",
+      "label": "Turkish risk label",
+      "detail": "Turkish: Why this specific visible element is dangerous"
     }
   ]
 }
 
-ÖNEMLİ - BOUNDS KOORDİNATLARI:
-- **x**: Güvenli alanın SOL kenarının konumu (0 = en sol, 1 = en sağ)
-- **y**: Güvenli alanın ÜST kenarının konumu (0 = en üst, 1 = en alt)
-- **width**: Alanın GENİŞLİĞİ (0.2-0.4 arası ideal)
-- **height**: Alanın YÜKSEKLİĞİ (0.2-0.4 arası ideal)
-
-ÖRNEK: Sağ altta bir kanepe için bounds: {"x": 0.6, "y": 0.6, "width": 0.3, "height": 0.35}
-ÖRNEK: Sol üstte bir masa için bounds: {"x": 0.1, "y": 0.1, "width": 0.25, "height": 0.3}
-ÖRNEK: Ortada bir mobilya için bounds: {"x": 0.4, "y": 0.4, "width": 0.3, "height": 0.3}
-
-DİKKAT:
-- Fotoğraftaki GERÇEK konumları doğru belirle
-- Koordinatlar mobilyanın TAM ÜZERİNDE olmalı
-- Her güvenli alan FARKLI bir yerde olmalı
-- En az 2-4 güvenli alan belirle
-- Türkçe yanıt ver
+Return 1 to 3 safe zones maximum. Fewer precise zones are better than many imprecise ones.
 `;
 
-const buildOpenAiRequestBody = (base64Image) => ({
-  model: MODEL_NAME,
-  messages: [
-    {
-      role: 'system',
-      content:
-        'You help Turkish-speaking users quickly spot safe and unsafe zones inside rooms for earthquakes.',
-    },
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: buildPrompt() },
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:image/jpeg;base64,${base64Image}`,
-          },
-        },
+// ── Gemini API ─────────────────────────────────────────────────────────────
+
+const callGemini = async (base64Image, apiKey, imgW, imgH) => {
+  const url = `${GEMINI_API_BASE}/${MODEL_NAME}:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{
+      parts: [
+        { text: buildPrompt(imgW, imgH) },
+        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
       ],
+    }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
     },
-  ],
-  temperature: 0.2,
-  response_format: { type: 'json_object' },
-});
-
-const extractMessageContent = (data) => {
-  const choice = data?.choices?.[0];
-  if (!choice) {
-    return null;
-  }
-
-  const { message } = choice;
-
-  if (typeof message?.content === 'string') {
-    return message.content;
-  }
-
-  if (Array.isArray(message?.content)) {
-    const textPart = message.content.find((part) => part.type === 'text');
-    if (textPart) {
-      return textPart.text;
-    }
-  }
-
-  return null;
-};
-
-const parseStructuredAnalysis = (content) => {
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch (error) {
-    throw new Error('Yapay zeka yan?t? JSON format?nda de?il.');
-  }
-
-  return {
-    summary:
-      parsed.summary ?? 'Foto?raftaki sabit mobilyalara yak?n ??k-kapan-tutun pozisyonu al.',
-    safeZones: normalizeSafeZones(parsed.safeZones),
-    risks: normalizeRisks(parsed.risks),
-    source: 'ai',
-  };
-};
-
-const parseOpenAiResponse = (data) => {
-  const content = extractMessageContent(data);
-  if (!content) {
-    throw new Error('Yapay zeka yan?t? bo? d?nd?.');
-  }
-  return parseStructuredAnalysis(content);
-};
-
-const callOpenAI = async (base64Image, apiKey) => {
-  const body = buildOpenAiRequestBody(base64Image);
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`,
   };
 
-  const response = await fetch(OPENAI_DEFAULT_API_URL, {
+  const response = await fetch(url, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = 'Bilinmeyen hata';
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (response.status === 401) {
-        errorMessage = 'API anahtarı geçersiz. Lütfen OpenAI API anahtarınızı kontrol edin.';
-      } else if (errorData.error?.message) {
-        errorMessage = errorData.error.message;
-      }
-    } catch {
-      errorMessage = errorText;
-    }
-    
-    throw new Error(errorMessage);
+    const text = await response.text();
+    throw new Error(`Gemini API hatası ${response.status}: ${text.slice(0, 200)}`);
   }
 
   const data = await response.json();
-  return parseOpenAiResponse(data);
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) throw new Error('Gemini yanıtı boş döndü.');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error('Gemini yanıtı JSON formatında değil.');
+  }
+
+  return {
+    summary: parsed.summary ?? 'En yakın sağlam mobilyanın yanına çök-kapan-tutun pozisyonunu uygula.',
+    safeZones: parseSafeZones(parsed.safeZones ?? [], imgW, imgH),
+    risks: parseRisks(parsed.risks ?? []),
+    source: 'ai',
+    provider: `Gemini ${MODEL_NAME}`,
+    imageWidth: imgW,
+    imageHeight: imgH,
+  };
 };
 
-export const analyzeSafeSpotPhoto = async (photoUri) => {
+// ── OpenAI API ─────────────────────────────────────────────────────────────
+
+const callOpenAI = async (base64Image, apiKey, imgW, imgH) => {
+  const openAiModel = MODEL_NAME.startsWith('gemini') ? 'gpt-4o-mini' : MODEL_NAME;
+  const body = {
+    model: openAiModel,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an earthquake safety expert. Analyze room photos and identify precise safe spots. Always respond with valid JSON only.',
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: buildPrompt(imgW, imgH) },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' } },
+        ],
+      },
+    ],
+    temperature: 0.1,
+    response_format: { type: 'json_object' },
+  };
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let msg = text;
+    try {
+      const err = JSON.parse(text);
+      msg = response.status === 401
+        ? 'OpenAI API anahtarı geçersiz.'
+        : (err.error?.message ?? text);
+    } catch { /* ignore */ }
+    throw new Error(`OpenAI API hatası: ${msg}`);
+  }
+
+  const data = await response.json();
+  const choice = data?.choices?.[0];
+  const rawContent = typeof choice?.message?.content === 'string'
+    ? choice.message.content
+    : choice?.message?.content?.find?.((p) => p.type === 'text')?.text;
+
+  if (!rawContent) throw new Error('OpenAI yanıtı boş döndü.');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch {
+    throw new Error('OpenAI yanıtı JSON formatında değil.');
+  }
+
+  return {
+    summary: parsed.summary ?? 'En yakın sağlam mobilyanın yanına çök-kapan-tutun pozisyonunu uygula.',
+    safeZones: parseSafeZones(parsed.safeZones ?? [], imgW, imgH),
+    risks: parseRisks(parsed.risks ?? []),
+    source: 'ai',
+    provider: `OpenAI ${openAiModel}`,
+    imageWidth: imgW,
+    imageHeight: imgH,
+  };
+};
+
+// ── Ana export ─────────────────────────────────────────────────────────────
+
+// imageDimensions: { width, height } — fotoğrafın orijinal piksel boyutu
+export const analyzeSafeSpotPhoto = async (photoUri, imageDimensions) => {
+  const imgW = imageDimensions?.width || 1080;
+  const imgH = imageDimensions?.height || 1440;
+
+  if (!API_KEY) {
+    return fallbackAnalysis('missing-key');
+  }
+
   let base64Image;
   try {
     base64Image = await readImageAsBase64(photoUri);
-
-    if (!API_KEY) {
-      return fallbackAnalysis('missing-key');
-    }
-
-    const body = buildOpenAiRequestBody(base64Image);
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    };
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Yapay zeka iste?i ba?ar?s?z: ${response.status} ${message}`);
-    }
-
-    const data = await response.json();
-    if (__DEV__) {
-      console.log('[safeSpotAnalyzer] AI response', {
-        requestUrl: API_URL,
-        status: response.status,
-        keys: Object.keys(data || {}),
-      });
-    }
-    return parseOpenAiResponse(data);
   } catch (error) {
-    console.warn('[safeSpotAnalyzer] failed', {
-      apiUrl: API_URL,
-      message: error?.message,
-      stack: error?.stack,
-    });
+    console.warn('[safeSpot] Fotoğraf okunamadı:', error.message);
     return fallbackAnalysis('error');
   }
-};
 
-export const analyzeSafeSpotPhotoWithBothProviders = async (photoUri) => {
-  const openai = await analyzeSafeSpotPhoto(photoUri);
-  return {
-    openai,
-    gemini: null,
-  };
+  try {
+    if (PROVIDER === 'gemini') {
+      return await callGemini(base64Image, API_KEY, imgW, imgH);
+    }
+    return await callOpenAI(base64Image, API_KEY, imgW, imgH);
+  } catch (primaryError) {
+    console.warn(`[safeSpot] ${PROVIDER} başarısız:`, primaryError.message);
+
+    if (PROVIDER === 'gemini' && OPENAI_KEY) {
+      try {
+        return await callOpenAI(base64Image, OPENAI_KEY, imgW, imgH);
+      } catch (fallbackError) {
+        console.warn('[safeSpot] OpenAI fallback da başarısız:', fallbackError.message);
+      }
+    }
+
+    return { ...fallbackAnalysis('error'), error: primaryError.message };
+  }
 };
 
 export default analyzeSafeSpotPhoto;

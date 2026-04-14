@@ -1,22 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Linking } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
-
-const panicSteps = [
-  'Derin nefes al, sağlam bir mobilyanın yanına çök/kapan/tutun.',
-  'Başını ve enseni kolunla koru, pencerelerden uzak kal.',
-  'Dayanıklı koltuk, masa veya beyaz eşya yanında hayat üçgeni oluşturmaya çalış.',
-  'Asansör veya merdivenleri kullanma; sarsıntı bitene kadar bulunduğun yerde kal.',
-  "Ulaşabiliyorsan Acil Durum Kişileri listene 'Yardıma ihtiyacım var' bildirimi gönder.",
-  'Güvendeysen toplanma alanına çık ve burada tekrar haber ver.'
-];
-
-const emergencyNumbers = [
-  { label: 'AFAD 122', value: '122' },
-  { label: '112 Acil', value: '112' },
-  { label: 'Alo Deprem 184', value: '184' },
-];
+import { useTranslation } from '../i18n/index';
 
 const HIGHLIGHT_KEYWORDS = [
   'çök/kapan/tutun',
@@ -33,12 +19,15 @@ const HIGHLIGHT_KEYWORDS = [
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const EmergencyStatusScreen = ({ navigation }) => {
+  const { t } = useTranslation();
+
+  const panicSteps = [
+    t('panicStep1'), t('panicStep2'), t('panicStep3'),
+    t('panicStep4'), t('panicStep5'), t('panicStep6'),
+  ];
+
   const handleSelectStatus = (status) => {
     navigation.navigate('Alert', { status, autoShare: true });
-  };
-
-  const handleDial = (number) => {
-    Linking.openURL(`tel:${number}`).catch(() => {});
   };
 
   const highlightFragments = useMemo(() => {
@@ -49,13 +38,13 @@ const EmergencyStatusScreen = ({ navigation }) => {
         highlight: HIGHLIGHT_KEYWORDS.some((keyword) => keyword.toLowerCase() === chunk.toLowerCase()),
       }))
     );
-  }, []);
+  }, [panicSteps]);
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>Panik Anında Ne Yapmalı?</Text>
+          <Text style={styles.title}>{t('panicTitle')}</Text>
           {panicSteps.map((step, index) => (
             <View key={step} style={styles.stepRow}>
               <View style={styles.stepBadge}>
@@ -77,8 +66,8 @@ const EmergencyStatusScreen = ({ navigation }) => {
 
         <View style={styles.actions}>
           <PrimaryButton
-            title={'Yardıma ihtiyacım\nvar'}
-            onPress={() => handleSelectStatus('Yardıma ihtiyacım var')}
+            title={t('helpNeeded')}
+            onPress={() => handleSelectStatus(t('helpNeeded').replace('\n', ' '))}
             colorScheme={{ start: '#f97316', end: '#dc2626', shadow: '#7f1d1d', ripple: 'rgba(249, 115, 22, 0.35)' }}
             style={styles.helpButton}
             textStyle={styles.helpButtonText}
@@ -93,68 +82,82 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 36,
   },
   card: {
-    backgroundColor: '#0f1114',
-    borderRadius: 22,
-    padding: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 24,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#1f2933',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
-    elevation: 16,
+    elevation: 8,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    marginBottom: 14,
+    letterSpacing: 0.5,
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
   stepBadge: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#7f1d1d',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)', // Sky 400 tint for serious sequence
     borderWidth: 1,
-    borderColor: '#991b1b',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 14,
+    marginTop: -2, // Tipografi hizalaması
   },
   stepBadgeText: {
-    color: '#f8fafc',
-    fontWeight: '800',
+    color: '#38BDF8', // Sky 400
+    fontWeight: '900',
+    fontSize: 14,
   },
   step: {
     flex: 1,
-    fontSize: 14,
-    color: '#e5e7eb',
-    lineHeight: 22,
-    fontWeight: '700',
+    fontSize: 13,
+    color: '#94A3B8',
+    lineHeight: 20,
+    fontWeight: '500',
   },
   stepHighlight: {
-    color: '#f97316',
+    color: '#F8FAFC', // Slate 50
     fontWeight: '800',
   },
   actions: {
     marginTop: 0,
-    paddingBottom: 0,
+    paddingBottom: 24,
   },
   helpButton: {
     marginTop: 0,
-    paddingVertical: 18,
-    borderRadius: 36,
-    marginHorizontal: 24,
+    paddingVertical: 20,
+    borderRadius: 24,
+    marginHorizontal: 0,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)',
   },
   helpButtonText: {
-    fontSize: 26,
+    fontSize: 20,
+    fontWeight: '900',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },

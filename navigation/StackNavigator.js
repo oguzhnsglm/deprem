@@ -20,15 +20,12 @@ const Stack = createNativeStackNavigator();
 const StackNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Home"
+      initialRouteName="MapExplorer"
       detachInactiveScreens={false}
       screenOptions={{
+        headerShown: false,
         animation: Platform.OS === 'android' ? 'slide_from_right' : 'slide_from_right',
-        headerStyle: { backgroundColor: '#450a0a' },
-        headerTintColor: '#f8fafc',
-        headerTitleStyle: { fontWeight: '700', letterSpacing: 0.6 },
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: '#0b0508' },
+        contentStyle: { backgroundColor: '#0A0F1E' },
         detachPreviousScreen: false,
       }}
     >
