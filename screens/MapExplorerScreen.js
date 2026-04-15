@@ -224,6 +224,13 @@ const MapExplorerScreen = ({ navigation }) => {
     setShowHazardMap((prev) => !prev);
   }, []);
 
+  const showRiskInfo = useCallback(() => {
+    Alert.alert(
+      'Sismik Risk Analizi',
+      'Bu skor, fay hattina uzaklik ve bolgesel tehlike verileri birlikte degerlendirilerek uretilir. Bilgilendirme amaclidir; resmi zemin etudu veya yapi guvenligi raporu yerine gecmez.'
+    );
+  }, []);
+
   const handleMapLongPress = useCallback(async (event) => {
     const coordinate = event?.nativeEvent?.coordinate;
     if (!coordinate) {
@@ -340,7 +347,7 @@ const MapExplorerScreen = ({ navigation }) => {
 
             <View style={styles.overlayStack}>
               <View style={styles.vs30Card}>
-                <Text style={styles.vs30Title}>Vs30 Zemin Bilgisi</Text>
+                <Text style={styles.vs30Title}>Zemin Sertliği & Yapısı</Text>
                 {!vs30Available ? (
                   <Text style={styles.vs30Hint}>
                     .env icinde EXPO_PUBLIC_VS30_API_BASE tanimlamadan kullanilamaz.
@@ -352,26 +359,39 @@ const MapExplorerScreen = ({ navigation }) => {
                   </View>
                 ) : vs30Info ? (
                   <>
-                    <View style={styles.vs30Row}>
-                      <Text style={styles.vs30Value}>{vs30Info.vs30 ?? 'N/A'}</Text>
-                      <Text style={styles.vs30Unit}>m/s</Text>
-                      <View style={styles.vs30Badge}>
-                        <Text style={styles.vs30BadgeText}>{vs30Info.soilClass ?? '--'}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.vs30Coords}>
-                      {vs30Info.lat?.toFixed(4)}, {vs30Info.lon?.toFixed(4)}
-                    </Text>
-                    {typeof vs30Info.vs30 === 'number' && (() => {
-                      const soil = describeSoilStrength(vs30Info.vs30);
-                      if (!soil) return null;
+                    {(() => {
+                      const soil = typeof vs30Info.vs30 === 'number' ? describeSoilStrength(vs30Info.vs30) : null;
                       return (
-                        <Text style={styles.vs30Hint}>
-                          <Text style={{ color: soil.color, fontWeight: '800' }}>{soil.level}</Text>
-                          {` — ${soil.desc}`}
-                        </Text>
+                        <>
+                          <View style={styles.vs30Row}>
+                            <Text style={styles.vs30Value}>{vs30Info.vs30 ?? 'N/A'}</Text>
+                            <Text style={styles.vs30Unit}>m/s</Text>
+                            <View style={styles.vs30Badge}>
+                              <Text style={styles.vs30BadgeText}>{vs30Info.soilClass ?? '--'}</Text>
+                            </View>
+                            {soil && (
+                              <View style={[styles.riskLevelBadge, { borderColor: soil.color + '55', backgroundColor: soil.color + '18', marginLeft: 6 }]}>
+                                <Text style={[styles.riskLevelText, { color: soil.color }]}>{soil.level}</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.vs30Coords}>
+                            {vs30Info.lat?.toFixed(4)}, {vs30Info.lon?.toFixed(4)}
+                          </Text>
+                          {soil && (
+                            <Text style={styles.vs30Hint}>{soil.desc}</Text>
+                          )}
+                        </>
                       );
                     })()}
+                    {faultInfo?.regional_hazard_score != null && (
+                      <Text style={[styles.vs30Hint, { marginTop: 8 }]}>
+                        {'Global Earthquake Model Tehlike Skoru  '}
+                        <Text style={{ color: '#FDE047', fontWeight: '800' }}>
+                          %{faultInfo.regional_hazard_score}
+                        </Text>
+                      </Text>
+                    )}
                     {vs30Info.vs30 == null && (
                       <Text style={styles.vs30Hint}>Bu lokasyon için Zemin Vs30 verisi bulunamadı.</Text>
                     )}
@@ -385,7 +405,18 @@ const MapExplorerScreen = ({ navigation }) => {
 
               {isNativePlatform && (
                 <View style={styles.faultCard}>
-                  <Text style={styles.faultTitle}>Sismik Risk Analizi</Text>
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.faultTitle}>Sismik Risk Analizi</Text>
+                    <TouchableOpacity
+                      style={styles.infoButton}
+                      onPress={showRiskInfo}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Sismik risk analizi bilgisi"
+                    >
+                      <Text style={styles.infoButtonText}>i</Text>
+                    </TouchableOpacity>
+                  </View>
                   {!faultAvailable ? (
                     <Text style={styles.faultHint}>.env icinde EXPO_PUBLIC_API_BASE tanimlamadan fay verisi alinmaz.</Text>
                   ) : faultLoading ? (
@@ -414,7 +445,7 @@ const MapExplorerScreen = ({ navigation }) => {
                       {/* Bileşenler */}
                       <View style={styles.riskComponents}>
                         <View style={styles.riskComponentRow}>
-                          <Text style={styles.riskComponentLabel}>Aktif Fay</Text>
+                          <Text style={styles.riskComponentLabel}>Fay Hattı Uzaklığı</Text>
                           <Text style={styles.riskComponentValue}>
                             {faultInfo.distance_km != null ? `${faultInfo.distance_km} km` : '—'}
                           </Text>
@@ -425,17 +456,11 @@ const MapExplorerScreen = ({ navigation }) => {
                             {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} mm/yıl` : '—'}
                           </Text>
                         </View>
-                        {faultInfo.regional_hazard_score != null && (
-                          <View style={styles.riskComponentRow}>
-                            <Text style={styles.riskComponentLabel}>Bölgesel Tehlike</Text>
-                            <Text style={[styles.riskComponentValue, { color: '#FDE047' }]}>
-                              {faultInfo.regional_hazard_score}/100 (GEM)
-                            </Text>
-                          </View>
-                        )}
                       </View>
 
-                      <Text style={styles.faultNote}>{faultInfo.note}</Text>
+                      {faultInfo.note ? (
+                        <Text style={styles.faultNote}>{faultInfo.note}</Text>
+                      ) : null}
                     </>
                   ) : faultError ? (
                     <Text style={styles.faultError}>{faultError}</Text>
@@ -460,6 +485,22 @@ const MapExplorerScreen = ({ navigation }) => {
             {errorMessage && (
               <View style={styles.errorOverlay}>
                 <Text style={styles.errorOverlayText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            {showHazardMap && (
+              <View style={styles.legend}>
+                {[
+                  { color: '#B80000', label: 'Yüksek' },
+                  { color: '#FF7200', label: 'Orta' },
+                  { color: '#91DA12', label: 'Düşük' },
+                  { color: '#2EB9FF', label: 'Minimal' },
+                ].map(({ color, label }) => (
+                  <View key={label} style={styles.legendRow}>
+                    <View style={[styles.legendSwatch, { backgroundColor: color }]} />
+                    <Text style={styles.legendLabel}>{label}</Text>
+                  </View>
+                ))}
               </View>
             )}
 
@@ -639,16 +680,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   faultCard: {
-    backgroundColor: 'rgba(15, 23, 42, 0.94)', // Slate 900
-    borderRadius: 20, // Küçültüldü
-    padding: 16, // Küçültüldü
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#334155', // Slate 700
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginTop: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 15,
+    shadowRadius: 10,
     elevation: 8,
   },
   faultTitle: {
@@ -657,6 +698,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  infoButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  infoButtonText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 14,
   },
   faultRow: {
     flexDirection: 'row',
@@ -675,8 +737,8 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   riskScoreMax: {
-    fontSize: 16,
-    color: '#64748B',
+    fontSize: 14,
+    color: '#F1F5F9',
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -704,12 +766,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   riskComponentLabel: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   riskComponentValue: {
-    color: '#CBD5E1',
+    color: '#F1F5F9',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -737,19 +800,20 @@ const styles = StyleSheet.create({
   },
   faultHint: {
     color: '#CBD5E1',
-    marginTop: 12,
-    fontSize: 13,
-    lineHeight: 20,
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18,
   },
   faultNote: {
-    marginTop: 10,
-    color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 20,
+    marginTop: 8,
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 18,
   },
   faultError: {
-    marginTop: 12,
     color: '#FCA5A5',
+    marginTop: 8,
+    fontSize: 12,
     fontWeight: '700',
   },
   overlayNote: {
@@ -758,6 +822,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  legend: {
+    position: 'absolute',
+    bottom: 108,
+    left: 14,
+    backgroundColor: 'rgba(10, 15, 30, 0.78)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    gap: 4,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',
