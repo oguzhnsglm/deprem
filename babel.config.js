@@ -8,11 +8,11 @@ module.exports = function (api) {
         {
           include: [
             'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY',
-            'EXPO_PUBLIC_OPENAI_API_KEY',
-            'EXPO_PUBLIC_GEMINI_API_KEY',
-            'EXPO_PUBLIC_SAFE_SPOT_MODEL',
-            'EXPO_PUBLIC_SAFE_SPOT_PROVIDER',
             'EXPO_PUBLIC_VS30_API_BASE',
+            'EXPO_PUBLIC_MAP_API_BASE',
+            'EXPO_PUBLIC_FAULT_API_BASE',
+            'EXPO_PUBLIC_MAP_FETCH_TIMEOUT_MS',
+            'EXPO_PUBLIC_API_BASE',
           ],
         },
       ],

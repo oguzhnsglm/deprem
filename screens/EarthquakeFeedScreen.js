@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -11,24 +12,49 @@ import {
   PanResponder,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
-import PROVINCES from '../logic/provinces';
 import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences } from '../logic/profileStore';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
-import { computeTabOrder } from '../navigation/tabOrder';
+import { computeTabOrder, navigateTabRoute } from '../navigation/tabOrder';
+import { useTranslation } from '../i18n/index';
+import { getCountryConfig } from '../logic/countryConfig';
+import {
+  getCitiesForCountry,
+  getDefaultRegionForCountry,
+  resolveRegionLabelForCountry,
+} from '../logic/worldCities';
 
-const ALL_CITIES_OPTION = 'Tum Sehirler';
+const getValidRegionLabel = (countryCode, candidate, fallback) => {
+  const validLabels = getCitiesForCountry(countryCode);
+  const resolved = resolveRegionLabelForCountry(countryCode, candidate);
+  if (validLabels.includes(resolved)) {
+    return resolved;
+  }
+  return fallback;
+};
 
 const EarthquakeFeedScreen = ({ route, navigation }) => {
+  const { t } = useTranslation();
   const profilePrefs = getProfilePreferences();
-  const initialCity = route.params?.city || profilePrefs.city || 'Istanbul';
+  const countryCode = profilePrefs.country || 'TR';
+  const countryConfig = getCountryConfig(countryCode);
+  const citiesForCountry = getCitiesForCountry(countryCode);
+  const usesStateRegion = countryConfig?.regionType === 'state';
+  const ALL_CITIES_OPTION = t('allRegions');
+  const initialCity = getValidRegionLabel(
+    countryCode,
+    route.params?.city || profilePrefs.city,
+    getDefaultRegionForCountry(countryCode) || citiesForCountry[0] || 'Istanbul'
+  );
   const [selectedCity, setSelectedCity] = useState(initialCity);
+  const lastFetchedCountry = useRef(getProfilePreferences().country || 'TR');
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastError, setLastError] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
+  const lastAppliedRouteCity = useRef();
 
   const loadCityEvents = useCallback(
     async (cityName, { silent } = {}) => {
@@ -50,7 +76,7 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         setVisibleCount(10);
       } catch (error) {
         setEvents([]);
-        setLastError(error?.message || 'Veri yüklenemedi.');
+        setLastError(error?.message || t('loadFailed'));
       } finally {
         if (silent) {
           setRefreshing(false);
@@ -62,7 +88,42 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
     []
   );
 
+  // When navigating to this screen with a new city param (e.g. after profile save), update selectedCity
   useEffect(() => {
+    const paramCity = route.params?.city;
+    const routeCityKey = `${countryCode}:${paramCity || ''}`;
+    if (!paramCity || lastAppliedRouteCity.current === routeCityKey) {
+      return;
+    }
+    lastAppliedRouteCity.current = routeCityKey;
+    const resolvedParamCity = getValidRegionLabel(countryCode, paramCity, null);
+    if (resolvedParamCity) {
+      setSelectedCity((prev) => (prev === resolvedParamCity ? prev : resolvedParamCity));
+    }
+  }, [route.params?.city, countryCode]);
+
+  // On every focus: detect country change and reload or reset city accordingly
+  useFocusEffect(
+    useCallback(() => {
+      const prefs = getProfilePreferences();
+      const currentCountry = prefs.country || 'TR';
+      const validCities = getCitiesForCountry(currentCountry);
+      const resolvedCity = resolveRegionLabelForCountry(currentCountry, selectedCity);
+      if (selectedCity !== ALL_CITIES_OPTION && resolvedCity !== selectedCity && validCities.includes(resolvedCity)) {
+        setSelectedCity(resolvedCity);
+      } else if (selectedCity !== ALL_CITIES_OPTION && !validCities.includes(selectedCity)) {
+        // City doesn't belong to new country → reset (triggers loadCityEvents via useEffect)
+        setSelectedCity(ALL_CITIES_OPTION);
+      } else if (lastFetchedCountry.current !== currentCountry) {
+        // Country changed but city is still valid → force reload with new country's sources
+        lastFetchedCountry.current = currentCountry;
+        loadCityEvents(selectedCity);
+      }
+    }, [selectedCity, ALL_CITIES_OPTION, loadCityEvents])
+  );
+
+  useEffect(() => {
+    lastFetchedCountry.current = getProfilePreferences().country || 'TR';
     loadCityEvents(selectedCity);
   }, [selectedCity, loadCityEvents]);
 
@@ -86,10 +147,10 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         return;
       }
       if (target === 'EarthquakeFeed') {
-        navigation.navigate('EarthquakeFeed', { city: selectedCity });
+        navigateTabRoute(navigation, routeNames, 'EarthquakeFeed', 'EarthquakeFeed', { city: selectedCity });
         return;
       }
-      navigation.navigate(target);
+      navigateTabRoute(navigation, routeNames, 'EarthquakeFeed', target);
     },
     [navigation, selectedCity]
   );
@@ -115,9 +176,9 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
   return (
     <ScreenWrapper>
       <View style={styles.container} {...(swipeResponder?.panHandlers || {})}>
-        <Text style={styles.title}>Türkiye Bölgesi Sarsıntıları</Text>
+        <Text style={styles.title}>{t('regionQuakesTitle', { country: countryConfig.name })}</Text>
         <TouchableOpacity style={styles.modernSelector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
-          <Text style={styles.modernSelectorLabel}>Görüntülenen Veri Seti:</Text>
+          <Text style={styles.modernSelectorLabel}>{t('displayDatasetLabel')}</Text>
           <View style={styles.modernSelectorValueRow}>
             <Text style={styles.modernSelectorValue}>{selectedCity}</Text>
             <Text style={styles.modernSelectorArrow}>▼</Text>
@@ -128,11 +189,11 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
         {loading ? (
           <View style={styles.loader}>
             <ActivityIndicator color="#f8fafc" />
-            <Text style={styles.loaderText}>Veriler çekiliyor...</Text>
+            <Text style={styles.loaderText}>{t('loadingData')}</Text>
           </View>
         ) : null}
         {showAllCities ? (
-          <Text style={styles.allHint}>Tüm Türkiye için 60 günlük 1.2+ kayıtlar listelenir.</Text>
+          <Text style={styles.allHint}>{t('allCountryHint', { country: countryConfig.name })}</Text>
         ) : null}
         <ScrollView
           style={styles.list}
@@ -161,15 +222,13 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
               onPress={() => setVisibleCount((prev) => prev + 10)}
               activeOpacity={0.8}
             >
-              <Text style={styles.loadMoreText}>Daha Fazla Göster ({events.length - visibleCount} kaldı)</Text>
+              <Text style={styles.loadMoreText}>{t('showMoreLeft', { count: events.length - visibleCount })}</Text>
             </TouchableOpacity>
           ) : null}
 
           {!hadEvents && !loading ? (
             <Text style={styles.empty}>
-              {showAllCities
-                ? 'Bu tarih aralığında kayıt bulunamadı. Resmi bildirimler için AFAD ve Kandilli kanallarını kontrol et.'
-                : 'Bu şehir için seçilen tarih aralığında kayıt bulunamadı. Resmi bildirimler için AFAD ve Kandilli kanallarını kontrol et.'}
+              {showAllCities ? t('noRecordsAll') : (usesStateRegion ? t('noRecordsRegion') : t('noRecordsCity'))}
             </Text>
           ) : null}
         </ScrollView>
@@ -178,9 +237,9 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
       <Modal visible={cityModalVisible} transparent animationType="slide" onRequestClose={() => setCityModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Şehri seç</Text>
+            <Text style={styles.modalTitle}>{usesStateRegion ? t('selectRegionModal') : t('selectCityModal')}</Text>
             <ScrollView style={styles.modalList}>
-              {[ALL_CITIES_OPTION, ...PROVINCES].map((province) => (
+              {[ALL_CITIES_OPTION, ...citiesForCountry].map((province) => (
                 <TouchableOpacity
                   key={province}
                   style={[styles.modalItem, province === selectedCity && styles.modalItemActive]}
@@ -195,7 +254,7 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <PrimaryButton title="Kapat" onPress={() => setCityModalVisible(false)} />
+            <PrimaryButton title={t('close')} onPress={() => setCityModalVisible(false)} />
           </View>
         </View>
       </Modal>

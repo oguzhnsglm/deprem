@@ -5,6 +5,11 @@ import { fetchBmkgEvents } from './sources/bmkg';
 import { fetchNoaEvents } from './sources/noa';
 import { getCountryConfig } from './countryConfig';
 import { getProfilePreferences } from './profileStore';
+import {
+  getRegionBoundsForCountry,
+  getRegionOptionForCountry,
+  getRegionOptionsForCountry,
+} from './worldCities';
 
 const TURKEY_BOUNDS = {
   minLat: 34.5,
@@ -13,20 +18,59 @@ const TURKEY_BOUNDS = {
   maxLon: 45.5,
 };
 
+const asBoundsList = (bounds) => {
+  if (!bounds) return [];
+  return Array.isArray(bounds) ? bounds : [bounds];
+};
+
+const isInsideBounds = (latitude, longitude, bounds) => {
+  if (latitude === null || longitude === null || latitude === undefined || longitude === undefined || !bounds) {
+    return false;
+  }
+  const withinLat = latitude >= bounds.minLat && latitude <= bounds.maxLat;
+  const withinLon = bounds.minLon <= bounds.maxLon
+    ? longitude >= bounds.minLon && longitude <= bounds.maxLon
+    : longitude >= bounds.minLon || longitude <= bounds.maxLon;
+  return withinLat && withinLon;
+};
+
+const isInsideAnyBounds = (latitude, longitude, bounds) =>
+  asBoundsList(bounds).some((item) => isInsideBounds(latitude, longitude, item));
+
+const hasRegionArea = (regionOption) =>
+  Boolean(regionOption?.bounds) ||
+  (Number.isFinite(regionOption?.latitude) && Number.isFinite(regionOption?.longitude));
+
+const toRadians = (degrees) => degrees * Math.PI / 180;
+
+const getDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 // USGS bbox filtreli çekme (ülkeye özel sınırlar)
 const fetchUsgsEventsBbox = (bounds) => async (params) => {
   const features = await fetchUsgsEvents(params);
   return features.filter((e) => {
     const lat = e.latitude;
     const lon = e.longitude;
-    if (lat == null || lon == null) return false;
-    return lat >= bounds.minLat && lat <= bounds.maxLat &&
-           lon >= bounds.minLon && lon <= bounds.maxLon;
+    return isInsideAnyBounds(lat, lon, bounds);
   });
 };
 
+const fetchUsgsEventsForRegions = (regionOptions) => async (params) => {
+  const features = await fetchUsgsEvents(params);
+  return features.filter((event) => matchesAnyRegionOption(event, regionOptions));
+};
+
 // Ülkeye özel ek kaynak seçici
-const getCountrySourceDefinition = (sourceKey, bounds) => {
+const getCountrySourceDefinition = (sourceKey, bounds, countryCode) => {
   switch (sourceKey) {
     case 'kandilli':
       return { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents };
@@ -41,6 +85,12 @@ const getCountrySourceDefinition = (sourceKey, bounds) => {
     case 'noa':
       return { key: 'noa', label: 'NOA', fetcher: fetchNoaEvents };
     case 'usgs-bbox':
+      if (countryCode === 'US') {
+        const regionOptions = getRegionOptionsForCountry(countryCode);
+        return regionOptions.length
+          ? { key: 'usgs-local', label: 'USGS (Yerel)', fetcher: fetchUsgsEventsForRegions(regionOptions) }
+          : null;
+      }
       return bounds
         ? { key: 'usgs-local', label: 'USGS (Yerel)', fetcher: fetchUsgsEventsBbox(bounds) }
         : null;
@@ -54,16 +104,27 @@ const buildSourceDefinitions = () => {
   const countryConfig = getCountryConfig(prefs.country || 'TR');
   const countrySource = getCountrySourceDefinition(
     countryConfig.sourceKey,
-    countryConfig.bounds
+    countryConfig.code === 'US' ? getRegionBoundsForCountry(countryConfig.code) : countryConfig.bounds,
+    countryConfig.code
   );
 
-  const definitions = [
-    { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents },
-  ];
+  const definitions = [];
 
-  // Ülkeye özel kaynak USGS'den farklıysa ekle
-  if (countrySource && countrySource.key !== 'usgs') {
+  const usgsBounds = countryConfig.code === 'US'
+    ? getRegionBoundsForCountry(countryConfig.code)
+    : countryConfig.bounds;
+  const usgsDefinition = usgsBounds
+    ? { key: 'usgs-local', label: 'USGS', fetcher: fetchUsgsEventsBbox(usgsBounds) }
+    : { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents };
+
+  if (countrySource?.key === 'usgs-local') {
+    // usgs-bbox ülkeler için sadece bbox-filtreli USGS kullan (global USGS ekleme)
     definitions.push(countrySource);
+  } else {
+    definitions.push(usgsDefinition);
+    if (countrySource && countrySource.key !== 'usgs') {
+      definitions.push(countrySource);
+    }
   }
 
   return definitions;
@@ -73,6 +134,16 @@ const DEFAULT_LOOKBACK_DAYS = 2;
 const DEFAULT_LIMIT_PER_SOURCE = 500;
 const CACHE_TTL_MS = 60 * 1000;
 const aggregatedCache = new Map();
+
+const normalizeApiBase = (rawBase = '') => {
+  let cleaned = String(rawBase || '').trim().replace(/\/+$/, '');
+  if (!cleaned) return '';
+  cleaned = cleaned.replace('http://localhost', 'http://10.0.2.2');
+  cleaned = cleaned.replace('http://127.0.0.1', 'http://10.0.2.2');
+  return cleaned;
+};
+
+const EARTHQUAKE_API_BASE = normalizeApiBase(process.env.EXPO_PUBLIC_API_BASE || '');
 
 const TURKISH_CHAR_MAP = {
   ı: 'i',
@@ -99,6 +170,93 @@ const normalizeText = (value = '') =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
+
+const normalizeRegionToken = (value = '') =>
+  normalizeText(value)
+    .replace(/[.'’]/g, '')
+    .replace(/\s+region$/i, '')
+    .trim();
+
+const getEventTextFields = (event = {}) => [
+  event.city,
+  event.province,
+  event.district,
+  event.location,
+  event.flynnRegion,
+].filter(Boolean).map((field) => String(field));
+
+const aliasMatchesToken = (aliases = [], token = '') => {
+  const normalizedToken = normalizeRegionToken(token);
+  return aliases.some((alias) => normalizeRegionToken(alias) === normalizedToken);
+};
+
+const getTrailingRegionToken = (text = '') => {
+  const raw = String(text).trim();
+  if (!raw) return null;
+  const commaParts = raw.split(',');
+  if (commaParts.length > 1) {
+    return commaParts[commaParts.length - 1].trim();
+  }
+  const regionMatch = raw.match(/([A-Za-z .]+?\s+region)$/i);
+  return regionMatch ? regionMatch[1].trim() : null;
+};
+
+const findRegionOptionFromText = (text, regionOptions = []) => {
+  const trailingToken = getTrailingRegionToken(text);
+  if (trailingToken) {
+    const match = regionOptions.find((option) => aliasMatchesToken(option.aliases, trailingToken));
+    if (match) return match;
+  }
+
+  const normalizedText = ` ${normalizeRegionToken(text)} `;
+  return regionOptions.find((option) => {
+    const label = normalizeRegionToken(option.label);
+    return label.length > 2 && normalizedText.includes(` ${label} `);
+  });
+};
+
+const findRegionOptionForEvent = (event, regionOptions = []) => {
+  for (const field of getEventTextFields(event)) {
+    const match = findRegionOptionFromText(field, regionOptions);
+    if (match) return match;
+  }
+  return null;
+};
+
+const eventMatchesRegionBounds = (event, regionOption) => {
+  if (regionOption?.bounds && isInsideAnyBounds(event.latitude, event.longitude, regionOption.bounds)) {
+    return true;
+  }
+
+  if (
+    Number.isFinite(regionOption?.latitude) &&
+    Number.isFinite(regionOption?.longitude) &&
+    Number.isFinite(event.latitude) &&
+    Number.isFinite(event.longitude)
+  ) {
+    const radiusKm = Number(regionOption.radiusKm) > 0 ? Number(regionOption.radiusKm) : 80;
+    return getDistanceKm(event.latitude, event.longitude, regionOption.latitude, regionOption.longitude) <= radiusKm;
+  }
+
+  return false;
+};
+
+const matchesRegionOption = (event, regionOption, regionOptions = []) => {
+  if (!regionOption) return true;
+  const areaMatch = eventMatchesRegionBounds(event, regionOption);
+  const detectedRegion = findRegionOptionForEvent(event, regionOptions);
+  if (detectedRegion) {
+    return detectedRegion.label === regionOption.label || areaMatch;
+  }
+  return areaMatch;
+};
+
+const matchesAnyRegionOption = (event, regionOptions = []) => {
+  if (!regionOptions.length) return true;
+  const detectedRegion = findRegionOptionForEvent(event, regionOptions);
+  if (detectedRegion) return true;
+  return regionOptions.some((option) => eventMatchesRegionBounds(event, option));
+};
 
 const ensureIsoString = (value, fallbackOffsetHours = 0) => {
   if (!value) {
@@ -406,13 +564,40 @@ async function fetchIrisEvents({ startDate, endDate, minMagnitude, limit }) {
   });
 }
 
-const buildCacheKey = ({ startDate, endDate, minMagnitude, limit }) =>
+const buildCacheKey = ({ startDate, endDate, minMagnitude, limit, countryCode }) =>
   [
     startDate.slice(0, 19),
     endDate.slice(0, 19),
     Number(minMagnitude || 0).toFixed(1),
     Number(limit || 0),
+    countryCode || 'TR',
   ].join('|');
+
+const fetchAggregatedEventsFromServer = async ({
+  countryCode,
+  lookbackDays,
+  minMagnitude,
+  limitPerSource,
+}) => {
+  if (!EARTHQUAKE_API_BASE) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    country: countryCode || 'TR',
+    lookbackDays: String(lookbackDays),
+    minMagnitude: String(minMagnitude),
+    limitPerSource: String(limitPerSource),
+  });
+  const payload = await fetchJson(`${EARTHQUAKE_API_BASE}/api/earthquakes?${params.toString()}`);
+  return {
+    events: Array.isArray(payload?.events) ? payload.events : [],
+    sourceMeta: Array.isArray(payload?.sourceMeta) ? payload.sourceMeta : [],
+    attribution: Array.isArray(payload?.attribution) ? payload.attribution : [],
+    fetchedAt: payload?.fetchedAt,
+    cache: payload?.cache,
+  };
+};
 
 const getAggregatedEvents = async ({ lookbackDays, minMagnitude, limitPerSource }) => {
   const now = new Date();
@@ -423,17 +608,45 @@ const getAggregatedEvents = async ({ lookbackDays, minMagnitude, limitPerSource 
   const limit = Number(limitPerSource) > 0 ? Number(limitPerSource) : DEFAULT_LIMIT_PER_SOURCE;
 
   const SOURCE_DEFINITIONS = buildSourceDefinitions();
+  const countryCode = getProfilePreferences().country || 'TR';
 
   const cacheKey = buildCacheKey({
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
     minMagnitude: minMag,
     limit,
+    countryCode,
   });
 
   const cached = aggregatedCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.payload;
+  }
+
+  if (!EARTHQUAKE_API_BASE) {
+    throw new Error('EXPO_PUBLIC_API_BASE yapılandırılmadı. Deprem verileri server proxy üzerinden alınmalıdır.');
+  }
+
+  const serverPayload = await fetchAggregatedEventsFromServer({
+    countryCode,
+    lookbackDays: lookback,
+    minMagnitude: minMag,
+    limitPerSource: limit,
+  });
+
+  if (serverPayload) {
+    const payload = {
+      events: sortEventsDesc(dedupeEvents(serverPayload.events || [])),
+      sourceMeta: serverPayload.sourceMeta || [],
+      attribution: serverPayload.attribution || [],
+      fetchedAt: serverPayload.fetchedAt,
+      cache: serverPayload.cache,
+    };
+    aggregatedCache.set(cacheKey, {
+      timestamp: Date.now(),
+      payload,
+    });
+    return payload;
   }
 
   const sourceMeta = SOURCE_DEFINITIONS.map(({ key, label }) => ({
@@ -484,10 +697,23 @@ export const fetchCityEarthquakes = async ({
   minMagnitude = 2,
   limitPerSource = DEFAULT_LIMIT_PER_SOURCE,
 } = {}) => {
+  const countryCode = getProfilePreferences().country || 'TR';
+  const regionOptions = getRegionOptionsForCountry(countryCode);
+  const selectedRegion = city ? getRegionOptionForCountry(countryCode, city) : null;
   const normalizedCity = city ? normalizeText(city) : '';
   const aggregated = await getAggregatedEvents({ lookbackDays, minMagnitude, limitPerSource });
+
   const filteredEvents = normalizedCity
-    ? aggregated.events.filter((event) => matchesCity(event, normalizedCity))
+    ? aggregated.events.filter((event) => {
+        const src = (event.source || '').toUpperCase();
+        if (hasRegionArea(selectedRegion)) {
+          return matchesRegionOption(event, selectedRegion, regionOptions);
+        }
+        // Local agency events (JMA, INGV, GeoNet, BMKG) use non-English location strings
+        // fall back to text only when no coordinate/radius area exists for the selected city.
+        if (src !== 'USGS' && src !== 'KANDILLI') return true;
+        return matchesCity(event, normalizedCity);
+      })
     : aggregated.events;
   const trustedEvents = filterTrustedEvents(filteredEvents);
   const verification = buildVerificationDetails({

@@ -15,23 +15,17 @@ import ContactCard from '../components/ContactCard';
 import PrimaryButton from '../components/PrimaryButton';
 import { getCurrentUser } from '../logic/authStore';
 import { loadContacts, addContact, deleteContact } from '../logic/contactsService';
-
-const formatTurkishPhone = (digits) => {
-  if (digits.length <= 3) return `+90 ${digits}`.trim();
-  if (digits.length <= 6) return `+90 ${digits.slice(0, 3)} ${digits.slice(3)}`.trim();
-  if (digits.length <= 8) return `+90 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`.trim();
-  return `+90 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`.trim();
-};
-
-const CLOSENESS_LEVELS = [
-  { label: 'Birincil destek', value: 'Birincil destek' },
-  { label: 'Hızlı haber', value: 'Hızlı haber' },
-  { label: 'Bilgilendir', value: 'Bilgilendir' },
-];
+import { useTranslation } from '../i18n/index';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ContactsScreen = () => {
+  const { t } = useTranslation();
+  const CLOSENESS_LEVELS = [
+    { label: t('primarySupport'), value: 'primary' },
+    { label: t('quickNews'), value: 'quick' },
+    { label: t('informLabel'), value: 'inform' },
+  ];
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,31 +54,31 @@ const ContactsScreen = () => {
     const cleanPhone = rawPhone.replace(/\D/g, '');
 
     if (!trimmedName || !trimmedRelation) {
-      setError('Lütfen ad ve ilişki alanlarını doldurun.');
+      setError(t('nameRelRequired'));
       return;
     }
 
     if (!/^\d{10}$/.test(cleanPhone)) {
-      setError('Telefon numarası 10 haneli olmalı ve sadece rakam içermelidir.');
+      setError(t('phoneFormatError'));
       return;
     }
 
     if (['0', '1'].includes(cleanPhone[0])) {
-      setError('Telefon numarası 0 veya 1 ile başlayamaz.');
+      setError(t('phoneStartError'));
       return;
     }
 
     if (!EMAIL_REGEX.test(trimmedEmail.toLowerCase())) {
-      setError('Lütfen geçerli bir e-posta adresi girin.');
+      setError(t('emailFormatError'));
       return;
     }
 
     if (!closeness) {
-      setError('Lütfen yakınlık derecesi seçin.');
+      setError(t('closenessSelectError'));
       return;
     }
 
-    const formattedPhone = formatTurkishPhone(cleanPhone);
+    const formattedPhone = cleanPhone;
     const contactData = {
       name: trimmedName,
       relation: trimmedRelation,
@@ -101,7 +95,7 @@ const ContactsScreen = () => {
       if (saved) {
         setContacts((prev) => [...prev, saved]);
       } else {
-        setError('Kişi kaydedilemedi, internet bağlantını kontrol et.');
+        setError(t('contactSaveFailed'));
         return;
       }
     } else {
@@ -143,16 +137,14 @@ const ContactsScreen = () => {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.select({ ios: 'padding', android: undefined })}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Acil Durum Kişileri</Text>
-            <Text style={styles.subtitle}>
-              Panik anında tek dokunuşla ulaşmak istediğin destek kişileri. Kartlara dokunup arama ya da mesaj planla.
-            </Text>
+            <Text style={styles.title}>{t('contactsTitle')}</Text>
+            <Text style={styles.subtitle}>{t('contactsSubtitle')}</Text>
           </View>
 
           {loading ? (
               <View style={styles.loaderRow}>
                 <ActivityIndicator color="#f8fafc" />
-                <Text style={styles.loaderText}>Kişiler yükleniyor...</Text>
+                <Text style={styles.loaderText}>{t('loadingContacts')}</Text>
               </View>
             ) : null}
 
@@ -163,13 +155,10 @@ const ContactsScreen = () => {
             ref={scrollRef}
           >
             <View style={styles.alertCard}>
-              <Text style={styles.alertTitle}>Nasıl Çalışıyor?</Text>
-              <Text style={styles.alertHint}>
-                Profilindeki eşik aşıldığında önce sana bildirim gelir. 2 dakika içinde yanıt vermezsen buradaki kişilere konumun
-                SMS ile gönderilir.
-              </Text>
+              <Text style={styles.alertTitle}>{t('howItWorks')}</Text>
+              <Text style={styles.alertHint}>{t('howItWorksDesc')}</Text>
               {contacts.length === 0 ? (
-                <Text style={styles.alertEmpty}>Listede kişi yok. En az bir kişi eklediğinden emin ol.</Text>
+                <Text style={styles.alertEmpty}>{t('noContactsYet')}</Text>
               ) : (
                 contacts.slice(0, 3).map((contact) => (
                   <View key={contact.id} style={styles.alertRow}>
@@ -194,55 +183,52 @@ const ContactsScreen = () => {
 
             <TouchableOpacity style={styles.inlineAddButton} onPress={toggleForm} activeOpacity={0.85}>
               <Text style={styles.inlineAddButtonText}>
-                {showForm ? 'Kişi ekleme formunu kapat' : 'Yeni kişi ekle'}
+                {showForm ? t('closeAddForm') : t('openAddForm')}
               </Text>
             </TouchableOpacity>
 
             {showForm ? (
               <View style={styles.formCard}>
-                <Text style={styles.formTitle}>Yeni kişi ekle</Text>
+                <Text style={styles.formTitle}>{t('addContactFormTitle')}</Text>
 
                 <View style={styles.inputGroup}>
                   <TextInput
                     value={name}
                     onChangeText={setName}
-                    placeholder="Ad Soyad"
+                    placeholder={t('nameSurnamePlaceholder')}
                     placeholderTextColor="#9ca3af"
                     style={styles.input}
                   />
                   <TextInput
                     value={relation}
                     onChangeText={setRelation}
-                    placeholder="İlişki (Örn: Anne, Kardeş, Komşu)"
+                    placeholder={t('relationPlaceholder')}
                     placeholderTextColor="#9ca3af"
                     style={styles.input}
                   />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="E-posta"
+                    placeholder={t('emailPlaceholder')}
                     placeholderTextColor="#9ca3af"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={styles.input}
                   />
-                  <View style={styles.phoneRow}>
-                    <Text style={styles.phonePrefix}>+90</Text>
-                    <TextInput
-                      value={rawPhone}
-                      onChangeText={(text) => {
-                        const digitsOnly = text.replace(/\D/g, '');
-                        if (digitsOnly.length <= 10) {
-                          setRawPhone(digitsOnly);
-                        }
-                      }}
-                      placeholder="5551234567"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="number-pad"
-                      style={styles.phoneInput}
-                    />
-                  </View>
-                  <Text style={styles.segmentLabel}>Yakınlık derecesi</Text>
+                  <TextInput
+                    value={rawPhone}
+                    onChangeText={(text) => {
+                      const digitsOnly = text.replace(/\D/g, '');
+                      if (digitsOnly.length <= 15) {
+                        setRawPhone(digitsOnly);
+                      }
+                    }}
+                    placeholder="5551234567"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="number-pad"
+                    style={styles.input}
+                  />
+                  <Text style={styles.segmentLabel}>{t('closenessLabel')}</Text>
                   <View style={styles.segmentRow}>
                     {CLOSENESS_LEVELS.map((level) => {
                       const isActive = closeness === level.value;
@@ -265,7 +251,7 @@ const ContactsScreen = () => {
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <PrimaryButton
-                  title={saving ? 'Kaydediliyor...' : 'Kişiyi Kaydet'}
+                  title={saving ? t('saving') : t('saveContactBtn')}
                   onPress={saving ? undefined : handleAddContact}
                   colorScheme="mint"
                 />

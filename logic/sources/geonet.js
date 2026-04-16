@@ -25,13 +25,14 @@ export async function fetchGeoNetEvents({ minMagnitude }) {
     })
     .map((f) => {
       const p = f.properties || {};
-      const [lon, lat, depth] = f.geometry?.coordinates || [];
+      const [lon, lat] = f.geometry?.coordinates || [];
+      // GeoNet puts depth in properties, not as a 3rd coordinate element
       return {
         id: `geonet-${p.publicID}`,
         source: 'GeoNet',
         time: p.time || null,
         magnitude: parseNumber(p.magnitude),
-        depthKm: parseNumber(depth),
+        depthKm: parseNumber(p.depth),
         latitude: parseNumber(lat),
         longitude: parseNumber(lon),
         location: p.locality || 'New Zealand',

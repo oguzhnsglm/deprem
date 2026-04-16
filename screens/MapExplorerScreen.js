@@ -1,41 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, PanResponder, Platform, SafeAreaView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import * as Location from 'expo-location';
-import { computeTabOrder } from '../navigation/tabOrder';
+import { computeTabOrder, navigateTabRoute } from '../navigation/tabOrder';
 import { getProfilePreferences } from '../logic/profileStore';
 import { getCountryConfig } from '../logic/countryConfig';
+import { useTranslation } from '../i18n/index';
 
 let MapView = null;
 let Marker = null;
 let UrlTile = null;
 const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
-
-const describeSoilStrength = (vs30) => {
-  if (typeof vs30 !== 'number') {
-    return null;
-  }
-  if (vs30 >= 1500) {
-    return { level: 'Çok Düşük Risk', color: '#10B981', desc: 'Çok sert kaya; deprem dalgalarını pek büyütmez, yer ivmesi düşük.' };
-  }
-  if (vs30 >= 760) {
-    return { level: 'Düşük Risk', color: '#34D399', desc: 'Sert kaya; stabil bir yapı sunar, yer sarsıntısı riski genel olarak düşüktür.' };
-  }
-  if (vs30 >= 360) {
-    return { level: 'Orta Risk', color: '#FACC15', desc: 'Orta sertlikte kaya/yarı sert zemin; standart seviye sarsıntı gözlenir.' };
-  }
-  if (vs30 >= 180) {
-    return { level: 'Yüksek Risk', color: '#F87171', desc: 'Yumuşak zemin; dalga büyütmesi belirgindir, yapılar şiddetli sarsılır.' };
-  }
-  return { level: 'Çok Yüksek Risk', color: '#EF4444', desc: 'Çok yumuşak/gevşek zemin; dalgaları kuvvetle büyütür ve sıvılaşma riski taşır.' };
-};
-
-const describeFaultRisk = (score) => {
-  if (score == null) return { level: 'Bilinmeyen Risk', color: '#94A3B8' };
-  if (score >= 90) return { level: 'Çok Yüksek Risk', color: '#EF4444' }; // 0-10 km, yüksek kayma
-  if (score >= 70) return { level: 'Yüksek Risk', color: '#F87171' }; // 10-30 km
-  if (score >= 40) return { level: 'Orta Risk', color: '#FACC15' }; // 30-60 km
-  return { level: 'Düşük Risk', color: '#34D399' }; // > 60 km
-};
 
 const fetchWithTimeout = async (url, { timeoutMs = 8000, ...options } = {}) => {
   const controller = new AbortController();
@@ -86,6 +60,25 @@ const getDefaultRegion = () => {
 };
 
 const MapExplorerScreen = ({ navigation }) => {
+  const { t } = useTranslation();
+
+  const describeSoilStrength = (vs30) => {
+    if (typeof vs30 !== 'number') return null;
+    if (vs30 >= 1500) return { level: t('riskLevelVeryLow'), color: '#10B981', desc: t('soilVeryLowDesc') };
+    if (vs30 >= 760)  return { level: t('riskLevelLow'),    color: '#34D399', desc: t('soilLowDesc') };
+    if (vs30 >= 360)  return { level: t('riskLevelMedium'), color: '#FACC15', desc: t('soilMediumDesc') };
+    if (vs30 >= 180)  return { level: t('riskLevelHigh'),   color: '#F87171', desc: t('soilHighDesc') };
+    return { level: t('riskLevelVeryHigh'), color: '#EF4444', desc: t('soilVeryHighDesc') };
+  };
+
+  const describeFaultRisk = (score) => {
+    if (score == null) return { level: t('riskLevelUnknown'), color: '#94A3B8' };
+    if (score >= 90)  return { level: t('riskLevelVeryHigh'), color: '#EF4444' };
+    if (score >= 70)  return { level: t('riskLevelHigh'),     color: '#F87171' };
+    if (score >= 40)  return { level: t('riskLevelMedium'),   color: '#FACC15' };
+    return { level: t('riskLevelLow'), color: '#34D399' };
+  };
+
   const [region, setRegion] = useState(getDefaultRegion);
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
@@ -105,8 +98,8 @@ const MapExplorerScreen = ({ navigation }) => {
   const vs30ApiBase = normalizeBaseUrl(vs30ApiBaseRaw);
   const vs30Available = Boolean(vs30ApiBase && isNativePlatform);
 
-  const apiBaseRaw = process.env.EXPO_PUBLIC_API_BASE || vs30ApiBaseRaw;
-  const faultApiBase = normalizeBaseUrl(apiBaseRaw);
+  const mapApiBaseRaw = process.env.EXPO_PUBLIC_MAP_API_BASE || process.env.EXPO_PUBLIC_FAULT_API_BASE || vs30ApiBaseRaw;
+  const faultApiBase = normalizeBaseUrl(mapApiBaseRaw);
   const faultAvailable = Boolean(faultApiBase && isNativePlatform);
 
   const fetchTimeoutMsRaw = Number(process.env.EXPO_PUBLIC_MAP_FETCH_TIMEOUT_MS);
@@ -125,14 +118,14 @@ const MapExplorerScreen = ({ navigation }) => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
-          'Konum İzni Gerekli',
-          'Konumunu haritada göstermek için konum iznine ihtiyaç var. Ayarlardan izin verebilirsin.',
+          t('locationPermTitle'),
+          t('locationPermMsg'),
           [
-            { text: 'Tamam', style: 'cancel' },
-            { text: 'Ayarlara Git', onPress: () => Linking.openSettings() },
+            { text: t('ok'), style: 'cancel' },
+            { text: t('openSettings'), onPress: () => Linking.openSettings() },
           ]
         );
-        setErrorMessage('Konum izni reddedildi. Manuel olarak haritada gezinebilirsin.');
+        setErrorMessage(t('locationPermDenied'));
         setLocating(false);
         return;
       }
@@ -152,7 +145,7 @@ const MapExplorerScreen = ({ navigation }) => {
       setUserLocation(coords);
       mapRef.current?.animateToRegion(nextRegion, 600);
     } catch (error) {
-      setErrorMessage('Konum alinirkken sorun olustu.');
+      setErrorMessage(t('locationFailed'));
     } finally {
       setLocating(false);
     }
@@ -186,10 +179,10 @@ const MapExplorerScreen = ({ navigation }) => {
         return;
       }
       if (target === 'EarthquakeFeed') {
-        navigation.navigate('EarthquakeFeed');
+        navigateTabRoute(navigation, routeNames, 'MapExplorer', 'EarthquakeFeed');
         return;
       }
-      navigation.navigate(target);
+      navigateTabRoute(navigation, routeNames, 'MapExplorer', target);
     },
     [navigation]
   );
@@ -225,11 +218,8 @@ const MapExplorerScreen = ({ navigation }) => {
   }, []);
 
   const showRiskInfo = useCallback(() => {
-    Alert.alert(
-      'Sismik Risk Analizi',
-      'Bu skor, fay hattina uzaklik ve bolgesel tehlike verileri birlikte degerlendirilerek uretilir. Bilgilendirme amaclidir; resmi zemin etudu veya yapi guvenligi raporu yerine gecmez.'
-    );
-  }, []);
+    Alert.alert(t('riskInfoTitle'), t('riskInfoBody'));
+  }, [t]);
 
   const handleMapLongPress = useCallback(async (event) => {
     const coordinate = event?.nativeEvent?.coordinate;
@@ -244,7 +234,7 @@ const MapExplorerScreen = ({ navigation }) => {
       setVs30Error(null);
     } else {
       setVs30Info(null);
-      setVs30Error('Vs30 servisi kullanilamiyor (.env kontrol edin).');
+      setVs30Error(t('soilNotAvailable'));
     }
 
     if (faultAvailable) {
@@ -252,7 +242,7 @@ const MapExplorerScreen = ({ navigation }) => {
       setFaultError(null);
     } else {
       setFaultInfo(null);
-      setFaultError('Fay servisi bulunamadi (.env icinde EXPO_PUBLIC_API_BASE tanimlayin).');
+      setFaultError(t('faultNotAvailable'));
     }
 
     const searchParams = new URLSearchParams({
@@ -271,7 +261,7 @@ const MapExplorerScreen = ({ navigation }) => {
       } catch (error) {
         console.warn('[MapExplorer] Vs30 fetch failed', error);
         setVs30Info(null);
-        setVs30Error(error?.name === 'AbortError' ? 'Vs30 servisi zaman asimina ugradi.' : 'Vs30 verisi alinmadi.');
+        setVs30Error(error?.name === 'AbortError' ? t('vs30Timeout') : t('vs30Failed'));
       } finally {
         setVs30Loading(false);
       }
@@ -291,7 +281,7 @@ const MapExplorerScreen = ({ navigation }) => {
       } catch (error) {
         console.warn('[MapExplorer] Fault fetch failed', error);
         setFaultInfo(null);
-        setFaultError(error?.name === 'AbortError' ? 'Fay servisi zaman asimina ugradi.' : 'Fay verisine ulasilamadi.');
+        setFaultError(error?.name === 'AbortError' ? t('faultTimeout') : t('faultFailed'));
       } finally {
         setFaultLoading(false);
       }
@@ -301,13 +291,13 @@ const MapExplorerScreen = ({ navigation }) => {
 
   const overlayNote = useMemo(() => {
     if (!canPickPoint) {
-      return 'Haritadan veri almak icin .env ayarlarini tamamlayin.';
+      return t('envConfigHint');
     }
     if (!selectedSoilPoint) {
-      return 'Haritada bir noktaya uzun basarak zemin ve fay analizini goster.';
+      return t('longPressHint');
     }
     return `${selectedSoilPoint.latitude.toFixed(4)}, ${selectedSoilPoint.longitude.toFixed(4)}`;
-  }, [canPickPoint, selectedSoilPoint]);
+  }, [canPickPoint, selectedSoilPoint, t]);
 
   return (
     <SafeAreaView style={styles.safeArea} {...(swipeResponder?.panHandlers || {})}>
@@ -324,7 +314,7 @@ const MapExplorerScreen = ({ navigation }) => {
               onLongPress={canPickPoint ? handleMapLongPress : undefined}
               onMapReady={() => setMapReady(true)}
             >
-              {showHazardMap && UrlTile && (
+              {showHazardMap && UrlTile && faultApiBase && (
                 <UrlTile
                   urlTemplate={`${faultApiBase}/tiles/hazard-tiff/{z}/{x}/{y}.png`}
                   opacity={0.85}
@@ -341,21 +331,19 @@ const MapExplorerScreen = ({ navigation }) => {
             {!mapReady ? (
               <View style={styles.mapPlaceholder} pointerEvents="none">
                 <ActivityIndicator color="#f8fafc" />
-                <Text style={styles.mapPlaceholderText}>Harita yukleniyor...</Text>
+                <Text style={styles.mapPlaceholderText}>{t('loadingMap')}</Text>
               </View>
             ) : null}
 
             <View style={styles.overlayStack}>
               <View style={styles.vs30Card}>
-                <Text style={styles.vs30Title}>Zemin Sertliği & Yapısı</Text>
+                <Text style={styles.vs30Title}>{t('soilTitle')}</Text>
                 {!vs30Available ? (
-                  <Text style={styles.vs30Hint}>
-                    .env icinde EXPO_PUBLIC_VS30_API_BASE tanimlamadan kullanilamaz.
-                  </Text>
+                  <Text style={styles.vs30Hint}>{t('soilNotAvailable')}</Text>
                 ) : vs30Loading ? (
                   <View style={styles.vs30Row}>
                     <ActivityIndicator color="#f472b6" size="small" />
-                    <Text style={[styles.vs30Hint, { marginLeft: 10 }]}>Zemin verisi yukleniyor...</Text>
+                    <Text style={[styles.vs30Hint, { marginLeft: 10 }]}>{t('soilLoading')}</Text>
                   </View>
                 ) : vs30Info ? (
                   <>
@@ -386,47 +374,46 @@ const MapExplorerScreen = ({ navigation }) => {
                     })()}
                     {faultInfo?.regional_hazard_score != null && (
                       <Text style={[styles.vs30Hint, { marginTop: 8 }]}>
-                        {'Global Earthquake Model Tehlike Skoru  '}
+                        {t('gemHazardScore') + '  '}
                         <Text style={{ color: '#FDE047', fontWeight: '800' }}>
                           %{faultInfo.regional_hazard_score}
                         </Text>
                       </Text>
                     )}
                     {vs30Info.vs30 == null && (
-                      <Text style={styles.vs30Hint}>Bu lokasyon için Zemin Vs30 verisi bulunamadı.</Text>
+                      <Text style={styles.vs30Hint}>{t('soilNoVs30')}</Text>
                     )}
                   </>
                 ) : vs30Error ? (
                   <Text style={styles.vs30Error}>{vs30Error}</Text>
                 ) : (
-                  <Text style={styles.vs30Hint}>Haritada uzun basarak zemin sinifini goster.</Text>
+                  <Text style={styles.vs30Hint}>{t('soilLongPress')}</Text>
                 )}
               </View>
 
               {isNativePlatform && (
                 <View style={styles.faultCard}>
                   <View style={styles.cardHeaderRow}>
-                    <Text style={styles.faultTitle}>Sismik Risk Analizi</Text>
+                    <Text style={styles.faultTitle}>{t('faultCardTitle')}</Text>
                     <TouchableOpacity
                       style={styles.infoButton}
                       onPress={showRiskInfo}
                       activeOpacity={0.8}
                       accessibilityRole="button"
-                      accessibilityLabel="Sismik risk analizi bilgisi"
+                      accessibilityLabel={t('riskInfoTitle')}
                     >
                       <Text style={styles.infoButtonText}>i</Text>
                     </TouchableOpacity>
                   </View>
                   {!faultAvailable ? (
-                    <Text style={styles.faultHint}>.env icinde EXPO_PUBLIC_API_BASE tanimlamadan fay verisi alinmaz.</Text>
+                    <Text style={styles.faultHint}>{t('faultNotAvailable')}</Text>
                   ) : faultLoading ? (
                     <View style={styles.faultRow}>
                       <ActivityIndicator color="#fde047" size="small" />
-                      <Text style={[styles.faultHint, { marginLeft: 10 }]}>Fay verisi yukleniyor...</Text>
+                      <Text style={[styles.faultHint, { marginLeft: 10 }]}>{t('faultLoading')}</Text>
                     </View>
                   ) : faultInfo ? (
                     <>
-                      {/* Ana skor */}
                       {(() => {
                         const risk = describeFaultRisk(faultInfo.seismic_risk_score ?? faultInfo.proximity_score);
                         return (
@@ -442,18 +429,17 @@ const MapExplorerScreen = ({ navigation }) => {
                         );
                       })()}
 
-                      {/* Bileşenler */}
                       <View style={styles.riskComponents}>
                         <View style={styles.riskComponentRow}>
-                          <Text style={styles.riskComponentLabel}>Fay Hattı Uzaklığı</Text>
+                          <Text style={styles.riskComponentLabel}>{t('faultDistLabel')}</Text>
                           <Text style={styles.riskComponentValue}>
                             {faultInfo.distance_km != null ? `${faultInfo.distance_km} km` : '—'}
                           </Text>
                         </View>
                         <View style={styles.riskComponentRow}>
-                          <Text style={styles.riskComponentLabel}>Kayma Hızı</Text>
+                          <Text style={styles.riskComponentLabel}>{t('slipRateLabel')}</Text>
                           <Text style={styles.riskComponentValue}>
-                            {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} mm/yıl` : '—'}
+                            {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} ${t('slipRateUnit')}` : '—'}
                           </Text>
                         </View>
                       </View>
@@ -465,9 +451,9 @@ const MapExplorerScreen = ({ navigation }) => {
                   ) : faultError ? (
                     <Text style={styles.faultError}>{faultError}</Text>
                   ) : selectedSoilPoint ? (
-                    <Text style={styles.faultHint}>Analiz hesaplaniyor...</Text>
+                    <Text style={styles.faultHint}>{t('faultCalculating')}</Text>
                   ) : (
-                    <Text style={styles.faultHint}>Haritada uzun basarak sismik risk analizini goster.</Text>
+                    <Text style={styles.faultHint}>{t('faultLongPress')}</Text>
                   )}
                 </View>
               )}
@@ -478,7 +464,7 @@ const MapExplorerScreen = ({ navigation }) => {
             {locating && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="small" color="#f472b6" />
-                <Text style={styles.loadingText}>Konum aliniyor...</Text>
+                <Text style={styles.loadingText}>{t('locating')}</Text>
               </View>
             )}
 
@@ -491,10 +477,10 @@ const MapExplorerScreen = ({ navigation }) => {
             {showHazardMap && (
               <View style={styles.legend}>
                 {[
-                  { color: '#B80000', label: 'Yüksek' },
-                  { color: '#FF7200', label: 'Orta' },
-                  { color: '#91DA12', label: 'Düşük' },
-                  { color: '#2EB9FF', label: 'Minimal' },
+                  { color: '#B80000', label: t('legendHigh') },
+                  { color: '#FF7200', label: t('legendMedium') },
+                  { color: '#91DA12', label: t('legendLow') },
+                  { color: '#2EB9FF', label: t('legendMinimal') },
                 ].map(({ color, label }) => (
                   <View key={label} style={styles.legendRow}>
                     <View style={[styles.legendSwatch, { backgroundColor: color }]} />
@@ -510,16 +496,14 @@ const MapExplorerScreen = ({ navigation }) => {
               activeOpacity={0.85}
             >
               <Text style={styles.fabText}>
-                {showHazardMap ? 'Haritayı Gizle' : 'Tehlike Haritası'}
+                {showHazardMap ? t('hideMap') : t('hazardMap')}
               </Text>
             </TouchableOpacity>
           </>
         ) : (
           <View style={styles.mapFallback}>
-            <Text style={styles.mapFallbackTitle}>Harita yuklenemedi</Text>
-            <Text style={styles.mapFallbackText}>
-              react-native-maps bu platformda hazir degil. Lutfen iOS/Android ortaminda calistirin.
-            </Text>
+            <Text style={styles.mapFallbackTitle}>{t('mapLoadFailed')}</Text>
+            <Text style={styles.mapFallbackText}>{t('mapPlatformMsg')}</Text>
           </View>
         )}
       </View>

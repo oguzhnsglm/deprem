@@ -1,5 +1,28 @@
 import { supabase } from '../lib/supabase';
 import { setProfilePreferences } from './profileStore';
+import * as SecureStore from 'expo-secure-store';
+
+const COUNTRY_KEY = 'user_country';
+const LANGUAGE_KEY = 'user_language';
+
+/** Call once at startup (before navigation renders) to hydrate country + language from local storage */
+export const loadLocalPreferences = async () => {
+  try {
+    const [country, language] = await Promise.all([
+      SecureStore.getItemAsync(COUNTRY_KEY),
+      SecureStore.getItemAsync(LANGUAGE_KEY),
+    ]);
+    if (country || language) {
+      setProfilePreferences({
+        ...(country ? { country } : {}),
+        ...(language ? { language } : {}),
+      });
+    }
+    return { country: country || 'TR', language: language || 'tr' };
+  } catch {
+    return { country: 'TR', language: 'tr' };
+  }
+};
 
 export const loadProfile = async (userId) => {
   try {
@@ -14,12 +37,25 @@ export const loadProfile = async (userId) => {
       throw error;
     }
 
+    // Load country + language from local secure store (not in Supabase schema)
+    const [storedCountry, storedLanguage] = await Promise.all([
+      SecureStore.getItemAsync(COUNTRY_KEY),
+      SecureStore.getItemAsync(LANGUAGE_KEY),
+    ]);
+
     if (data) {
       setProfilePreferences({
         name: data.name || '',
         surname: data.surname || '',
         city: data.city || 'İstanbul',
         threshold: data.threshold || 3.0,
+        country: storedCountry || 'TR',
+        language: storedLanguage || 'tr',
+      });
+    } else if (storedCountry || storedLanguage) {
+      setProfilePreferences({
+        country: storedCountry || 'TR',
+        language: storedLanguage || 'tr',
       });
     }
 
@@ -47,11 +83,19 @@ export const saveProfile = async (userId, profile) => {
 
     if (error) throw error;
 
+    // Persist country + language locally (not in Supabase schema)
+    const saveLocally = [];
+    if (profile.country) saveLocally.push(SecureStore.setItemAsync(COUNTRY_KEY, profile.country));
+    if (profile.language) saveLocally.push(SecureStore.setItemAsync(LANGUAGE_KEY, profile.language));
+    if (saveLocally.length) await Promise.all(saveLocally);
+
     setProfilePreferences({
       name: profile.name,
       surname: profile.surname,
       city: profile.city,
       threshold: profile.threshold,
+      country: profile.country,
+      language: profile.language,
     });
 
     return true;

@@ -1,14 +1,26 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 import tr from './tr';
 import en from './en';
 import ja from './ja';
+import es from './es';
+import id from './id';
+import it from './it';
+import zh from './zh';
+import fa from './fa';
+import hi from './hi';
 
-const TRANSLATIONS = { tr, en, ja };
+const TRANSLATIONS = { tr, en, ja, es, id, it, zh, fa, hi };
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'tr', label: 'Türkçe' },
+  { code: 'en', label: 'English' },
+  { code: 'ja', label: '日本語' },
+  { code: 'es', label: 'Español' },
+  { code: 'id', label: 'Bahasa Indonesia' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'zh', label: '中文' },
+  { code: 'fa', label: 'فارسی' },
+  { code: 'hi', label: 'हिन्दी' },
 ];
 
 const I18nContext = createContext({

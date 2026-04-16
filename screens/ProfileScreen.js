@@ -2,15 +2,17 @@ import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Modal, PanResponder } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
-import PROVINCES from '../logic/provinces';
 import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
-import { computeTabOrder } from '../navigation/tabOrder';
+import { computeTabOrder, navigateTabRoute } from '../navigation/tabOrder';
 import { getCurrentUser } from '../logic/authStore';
 import { loadProfile, saveProfile } from '../logic/profileService';
 import { useTranslation, SUPPORTED_LANGUAGES } from '../i18n/index';
 import { COUNTRY_LIST, getCountryConfig } from '../logic/countryConfig';
-
-const CITY_OPTIONS = PROVINCES;
+import {
+  getCitiesForCountry,
+  getDefaultRegionForCountry,
+  resolveRegionLabelForCountry,
+} from '../logic/worldCities';
 
 const InfoRow = ({ label, value }) => (
   <View style={styles.infoRow}>
@@ -22,7 +24,11 @@ const InfoRow = ({ label, value }) => (
 const ProfileScreen = ({ navigation }) => {
   const { t, lang, setLang } = useTranslation();
   const storedPrefs = getProfilePreferences();
-  const defaultCity = storedPrefs.city || CITY_OPTIONS[0] || 'İstanbul';
+  const defaultCountry = storedPrefs.country || 'TR';
+  const defaultCity = resolveRegionLabelForCountry(
+    defaultCountry,
+    storedPrefs.city || getDefaultRegionForCountry(defaultCountry) || 'İstanbul'
+  );
 
   const [profile, setProfile] = useState({
     city: defaultCity,
@@ -42,6 +48,10 @@ const ProfileScreen = ({ navigation }) => {
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const activeCountryConfig = getCountryConfig(profile.country);
+  const usesStateRegion = activeCountryConfig?.regionType === 'state';
+  const regionLabel = usesStateRegion ? t('myRegion') : t('myCity');
+  const selectRegionLabel = usesStateRegion ? t('selectRegion') : t('selectCity');
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -51,16 +61,21 @@ const ProfileScreen = ({ navigation }) => {
     }
     loadProfile(user.id).then((data) => {
       if (data) {
+        // country + language come from SecureStore via profileStore (not Supabase columns)
+        const prefs = getProfilePreferences();
+        const restoredLang = prefs.language || 'tr';
+        const restoredCountry = prefs.country || 'TR';
         setProfile({
           name: data.name || '',
           surname: data.surname || '',
           age: data.age ? String(data.age) : '',
           address: data.address || '',
-          city: data.city || defaultCity,
+          city: resolveRegionLabelForCountry(restoredCountry, data.city || defaultCity),
           threshold: data.threshold || 3.0,
-          language: data.language || 'tr',
-          country: data.country || 'TR',
+          language: restoredLang,
+          country: restoredCountry,
         });
+        setLang(restoredLang);
         setIsFilled(true);
         setIsEditing(false);
       } else {
@@ -86,10 +101,10 @@ const ProfileScreen = ({ navigation }) => {
         const target = direction === 'left' ? order[currentIndex + 1] : order[currentIndex - 1];
         if (!target) return;
         if (target === 'EarthquakeFeed') {
-          navigation.navigate('EarthquakeFeed', { city: profile.city });
+          navigateTabRoute(navigation, routeNames, 'Profile', 'EarthquakeFeed', { city: profile.city });
           return;
         }
-        navigation.navigate(target);
+        navigateTabRoute(navigation, routeNames, 'Profile', target);
       },
     })
   ).current;
@@ -101,16 +116,16 @@ const ProfileScreen = ({ navigation }) => {
 
   const validateAndSave = async () => {
     if (!profile.name.trim() || !profile.surname.trim()) {
-      setError('Ad ve soyad zorunludur.');
+      setError(t('nameRequired'));
       return;
     }
     const numericAge = Number(profile.age);
     if (!profile.age.trim() || Number.isNaN(numericAge) || numericAge < 10) {
-      setError('10 ve üzeri geçerli bir yaş gir.');
+      setError(t('ageError'));
       return;
     }
     if (!profile.address.trim()) {
-      setError('Adres boş bırakılamaz.');
+      setError(t('addressRequired'));
       return;
     }
     setError('');
@@ -149,80 +164,86 @@ const ProfileScreen = ({ navigation }) => {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerName}>
-                {isFilled ? `${profile.name} ${profile.surname}` : 'Profilim'}
+                {isFilled ? `${profile.name} ${profile.surname}` : t('profileTitle')}
               </Text>
               {isFilled ? (
                 <Text style={styles.headerCity}>{profile.city}</Text>
               ) : (
-                <Text style={styles.headerHint}>Bilgilerini ekle</Text>
+                <Text style={styles.headerHint}>{t('addInfo')}</Text>
               )}
             </View>
             {isFilled && !isEditing ? (
               <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)} activeOpacity={0.8}>
-                <Text style={styles.editButtonText}>Düzenle</Text>
+                <Text style={styles.editButtonText}>{t('edit')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
 
-          {/* GÖRÜNTÜLEME MODU */}
+          {/* VIEW MODE */}
           {isFilled && !isEditing ? (
             <View style={styles.card}>
-              <InfoRow label="Ad Soyad" value={`${profile.name} ${profile.surname}`} />
+              <InfoRow label={t('nameLabel')} value={`${profile.name} ${profile.surname}`} />
               <View style={styles.divider} />
-              <InfoRow label="Yaş" value={profile.age} />
+              <InfoRow label={t('age')} value={profile.age} />
               <View style={styles.divider} />
-              <InfoRow label="Şehir" value={profile.city} />
+              <InfoRow label={regionLabel} value={profile.city} />
               <View style={styles.divider} />
-              <InfoRow label="Adres" value={profile.address} />
+              <InfoRow label={t('address')} value={profile.address} />
               <View style={styles.divider} />
               <InfoRow label={t('notifLabel')} value={t('andAbove', { val: Number(profile.threshold).toFixed(1) })} />
               <View style={styles.divider} />
-              <InfoRow label={t('language')} value={`${SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.flag} ${SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.label}`} />
+              <InfoRow label={t('language')} value={SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.label} />
               <View style={styles.divider} />
-              <InfoRow label={t('country')} value={`${getCountryConfig(profile.country)?.flag} ${getCountryConfig(profile.country)?.name}`} />
+              <InfoRow label={t('country')} value={getCountryConfig(profile.country)?.name} />
               <View style={styles.divider} />
               <InfoRow label={t('dataSource')} value={getCountryConfig(profile.country)?.sourceLabel} />
             </View>
           ) : null}
 
-          {/* DÜZENLEME MODU */}
+          {/* EDIT MODE */}
           {isEditing ? (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
+              <Text style={styles.sectionTitle}>{t('profileInfo')}</Text>
               <View style={styles.fieldRow}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Ad"
+                  placeholder={t('firstName')}
                   placeholderTextColor="#9ca3af"
                   value={profile.name}
-                  onChangeText={(t) => handleInputChange('name', t)}
+                  onChangeText={(v) => handleInputChange('name', v)}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Soyad"
+                  placeholder={t('lastName')}
                   placeholderTextColor="#9ca3af"
                   value={profile.surname}
-                  onChangeText={(t) => handleInputChange('surname', t)}
+                  onChangeText={(v) => handleInputChange('surname', v)}
                 />
               </View>
               <TextInput
                 style={styles.input}
-                placeholder="Yaş"
+                placeholder={t('age')}
                 placeholderTextColor="#9ca3af"
                 keyboardType="number-pad"
                 value={profile.age}
-                onChangeText={(t) => handleInputChange('age', t.replace(/[^0-9]/g, ''))}
+                onChangeText={(v) => handleInputChange('age', v.replace(/[^0-9]/g, ''))}
               />
               <TextInput
                 style={[styles.input, styles.multiline]}
-                placeholder="Adres"
+                placeholder={t('address')}
                 placeholderTextColor="#9ca3af"
                 multiline
                 value={profile.address}
-                onChangeText={(t) => handleInputChange('address', t)}
+                onChangeText={(v) => handleInputChange('address', v)}
               />
 
-              <Text style={styles.label}>{t('myCity')}</Text>
+              <Text style={styles.label}>{t('country')}</Text>
+              <TouchableOpacity style={styles.selector} onPress={() => setCountryModalVisible(true)} activeOpacity={0.85}>
+                <Text style={styles.selectorValue}>{getCountryConfig(profile.country)?.name}</Text>
+                <Text style={styles.selectorHint}>{t('change')}</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.label}>{regionLabel}</Text>
               <TouchableOpacity style={styles.selector} onPress={() => setCityModalVisible(true)} activeOpacity={0.85}>
                 <Text style={styles.selectorValue}>{profile.city}</Text>
                 <Text style={styles.selectorHint}>{t('change')}</Text>
@@ -231,17 +252,7 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.label}>{t('language')}</Text>
               <TouchableOpacity style={styles.selector} onPress={() => setLangModalVisible(true)} activeOpacity={0.85}>
                 <Text style={styles.selectorValue}>
-                  {SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.flag}{' '}
                   {SUPPORTED_LANGUAGES.find((l) => l.code === profile.language)?.label}
-                </Text>
-                <Text style={styles.selectorHint}>{t('change')}</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.label}>{t('country')}</Text>
-              <TouchableOpacity style={styles.selector} onPress={() => setCountryModalVisible(true)} activeOpacity={0.85}>
-                <Text style={styles.selectorValue}>
-                  {getCountryConfig(profile.country)?.flag}{' '}
-                  {getCountryConfig(profile.country)?.name}
                 </Text>
                 <Text style={styles.selectorHint}>{t('change')}</Text>
               </TouchableOpacity>
@@ -271,12 +282,12 @@ const ProfileScreen = ({ navigation }) => {
                     onPress={() => { setIsEditing(false); setError(''); }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.cancelButtonText}>Vazgeç</Text>
+                    <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <View style={isFilled ? styles.saveButtonWrap : styles.saveButtonFull}>
                   <PrimaryButton
-                    title={saving ? 'Kaydediliyor...' : 'Kaydet'}
+                    title={saving ? t('saving') : t('save')}
                     onPress={saving ? undefined : validateAndSave}
                   />
                 </View>
@@ -289,9 +300,9 @@ const ProfileScreen = ({ navigation }) => {
         <Modal visible={cityModalVisible} animationType="slide" transparent onRequestClose={() => setCityModalVisible(false)}>
           <View style={styles.modalBackdrop}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{t('selectCity')}</Text>
+              <Text style={styles.modalTitle}>{selectRegionLabel}</Text>
               <ScrollView style={styles.modalList}>
-                {CITY_OPTIONS.map((city) => {
+                {getCitiesForCountry(profile.country).map((city) => {
                   const active = city === profile.city;
                   return (
                     <TouchableOpacity
@@ -323,7 +334,7 @@ const ProfileScreen = ({ navigation }) => {
                       onPress={() => { handleInputChange('language', langItem.code); setLangModalVisible(false); }}
                     >
                       <Text style={[styles.modalItemText, active && styles.modalItemTextActive]}>
-                        {langItem.flag}  {langItem.label}
+                        {langItem.label}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -345,10 +356,15 @@ const ProfileScreen = ({ navigation }) => {
                     <TouchableOpacity
                       key={c.code}
                       style={[styles.modalItem, active && styles.modalItemActive]}
-                      onPress={() => { handleInputChange('country', c.code); setCountryModalVisible(false); }}
+                      onPress={() => {
+                        const cities = getCitiesForCountry(c.code);
+                        handleInputChange('country', c.code);
+                        handleInputChange('city', getDefaultRegionForCountry(c.code) || cities[0] || '');
+                        setCountryModalVisible(false);
+                      }}
                     >
                       <Text style={[styles.modalItemText, active && styles.modalItemTextActive]}>
-                        {c.flag}  {c.name}
+                        {c.name}
                       </Text>
                       {active && (
                         <Text style={styles.sourceHintText}>{c.sourceLabel}</Text>

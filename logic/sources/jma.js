@@ -27,8 +27,10 @@ export async function fetchJmaEvents({ minMagnitude, limit }) {
     .map((item) => {
       const eq = item.earthquake || {};
       const hypo = eq.hypocenter || {};
-      // P2PQuake time format: "2024/01/01 12:00:00"
-      const rawTime = eq.time ? eq.time.replace(' ', 'T') + '+09:00' : null;
+      // P2PQuake time format: "2024/01/01 12:00:00" — slashes must become dashes for ISO 8601
+      const rawTime = eq.time
+        ? eq.time.replace(/\//g, '-').replace(' ', 'T') + '+09:00'
+        : null;
       return {
         id: `jma-${item.id}`,
         source: 'JMA',

@@ -4,11 +4,19 @@ const INGV_BASE = 'https://webservices.ingv.it/fdsnws/event/1/query';
 
 const parseNumber = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
+const formatIngvDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toISOString().slice(0, 19);
+};
+
 export async function fetchIngvEvents({ startDate, endDate, minMagnitude, limit }) {
   const params = new URLSearchParams({
     format: 'text',
-    starttime: startDate,
-    endtime: endDate,
+    starttime: formatIngvDate(startDate),
+    endtime: formatIngvDate(endDate),
     minmag: String(minMagnitude ?? 2.0),
     minlatitude: '36',
     maxlatitude: '48',

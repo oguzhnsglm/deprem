@@ -22,12 +22,12 @@ const StackNavigator = () => {
     <Stack.Navigator
       initialRouteName="MapExplorer"
       detachInactiveScreens={false}
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
-        animation: Platform.OS === 'android' ? 'slide_from_right' : 'slide_from_right',
+        animation: route.params?.transitionAnimation || 'slide_from_right',
         contentStyle: { backgroundColor: '#0A0F1E' },
         detachPreviousScreen: false,
-      }}
+      })}
     >
       <Stack.Screen
         name="Home"

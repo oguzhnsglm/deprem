@@ -14,7 +14,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { getProfilePreferences } from '../logic/profileStore';
 import { fetchCityEarthquakes } from '../logic/earthquakeSources';
-import { computeTabOrder } from '../navigation/tabOrder';
+import { getCountryConfig } from '../logic/countryConfig';
+import { computeTabOrder, navigateTabRoute } from '../navigation/tabOrder';
 import { useTranslation } from '../i18n/index';
 
 const formatEventMeta = (event, t) => {
@@ -70,6 +71,9 @@ const HomeScreen = ({ navigation }) => {
     }, [])
   );
 
+  const countryCode = prefs.country || 'TR';
+  const countryConfig = getCountryConfig(countryCode);
+
   const city = prefs.city || 'İstanbul';
 
   const loadRecentEvents = useCallback(
@@ -104,7 +108,7 @@ const HomeScreen = ({ navigation }) => {
         }
       }
     },
-    []
+    [countryCode]
   );
 
   useEffect(() => {
@@ -115,11 +119,9 @@ const HomeScreen = ({ navigation }) => {
     };
   }, [loadRecentEvents]);
 
-  const earthquakes = useMemo(
-    () => (earthquakeState.events || []).filter((e) => e.source === 'USGS'),
-    [earthquakeState.events]
-  );
+  const earthquakes = useMemo(() => earthquakeState.events || [], [earthquakeState.events]);
   const displayEvents = useMemo(() => earthquakes.slice(0, 3), [earthquakes]);
+  const sourceText = countryConfig.sourceLabel || t('source');
 
   const isLoading = loadingEvents && earthquakes.length === 0;
   const hasNoEvents = !isLoading && earthquakes.length === 0;
@@ -141,10 +143,10 @@ const HomeScreen = ({ navigation }) => {
         return;
       }
       if (target === 'EarthquakeFeed') {
-        navigation.navigate('EarthquakeFeed', { city });
+        navigateTabRoute(navigation, routeNames, 'Home', 'EarthquakeFeed', { city });
         return;
       }
-      navigation.navigate(target);
+      navigateTabRoute(navigation, routeNames, 'Home', target);
     },
     [city, navigation]
   );
@@ -184,7 +186,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.greetingText}>{t('greeting')}</Text>
               <Text style={styles.sectionTitle}>{t('recentEarthquakes')}</Text>
             </View>
-            <Text style={styles.sourceLabel}>{t('source')}</Text>
+            <Text style={styles.sourceLabel}>{sourceText}</Text>
           </View>
 
           {isLoading ? (
@@ -206,7 +208,7 @@ const HomeScreen = ({ navigation }) => {
                     </View>
                     <View style={styles.alertDetails}>
                       <Text style={styles.alertTitle}>{event.location}</Text>
-                      <Text style={styles.alertMeta}>{formatEventMeta(event, t)}</Text>
+                      <Text style={styles.alertMeta}>{event.source ? `${event.source} - ${formatEventMeta(event, t)}` : formatEventMeta(event, t)}</Text>
                     </View>
                   </View>
                 ))
@@ -274,6 +276,8 @@ const styles = StyleSheet.create({
     color: '#38BDF8', // Sky 400
     letterSpacing: 0.8,
     marginBottom: 2,
+    maxWidth: 150,
+    textAlign: 'right',
     textTransform: 'uppercase',
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
     paddingHorizontal: 6,

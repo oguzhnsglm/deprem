@@ -6,6 +6,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import SafeSpotAdvice from '../components/SafeSpotAdvice';
 import { getMockSafeSpotAdvice } from '../logic/mockSafeSpotAnalysis';
 import { analyzeSafeSpotPhoto } from '../logic/safeSpotAnalyzer';
+import { useTranslation } from '../i18n/index';
 
 // Çök-kapan-tutun pozisyonunda kişi figürü
 const FetalFigure = () => (
@@ -18,7 +19,7 @@ const FetalFigure = () => (
       {/* Dizler çekilmiş */}
       <View style={fetalStyles.knees} />
     </View>
-    <Text style={fetalStyles.label}>En Güvenli</Text>
+    <Text style={fetalStyles.label}>OK</Text>
   </View>
 );
 
@@ -64,6 +65,7 @@ const fetalStyles = StyleSheet.create({
 });
 
 const SafeSpotScreen = () => {
+  const { t } = useTranslation();
   const [analysis, setAnalysis] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null); // orijinal piksel boyutu
@@ -94,10 +96,7 @@ const SafeSpotScreen = () => {
   const requestCameraPermissions = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert(
-        'İzin gerekiyor',
-        'Güvenli alan analizi için kamera izni vermen gerekiyor.'
-      );
+      Alert.alert(t('permRequired'), t('cameraPermMsg'));
       return false;
     }
     return true;
@@ -106,10 +105,7 @@ const SafeSpotScreen = () => {
   const requestMediaLibraryPermissions = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert(
-        'İzin gerekiyor',
-        'Güvenli alan analizi için galeri izni vermen gerekiyor.'
-      );
+      Alert.alert(t('permRequired'), t('galleryPermMsg'));
       return false;
     }
     return true;
@@ -119,7 +115,7 @@ const SafeSpotScreen = () => {
     setCapturedPhoto(photoUri);
     setImageDimensions(dims ?? null);
     setIsAnalyzing(true);
-    setStatusMessage('Fotoğraf yapay zeka ile analiz ediliyor...');
+    setStatusMessage(t('analyzingPhoto'));
     setErrorMessage('');
 
     try {
@@ -127,15 +123,11 @@ const SafeSpotScreen = () => {
       setAnalysis(aiResult);
 
       const hasAnyAiResult = aiResult?.source === 'ai';
-      setStatusMessage(
-        hasAnyAiResult
-          ? 'Yapay zeka analizleri tamamlandı.'
-          : 'Örnek güvenli alan önerileri gösteriliyor.'
-      );
+      setStatusMessage(hasAnyAiResult ? t('aiAnalysisDone') : t('showingSample'));
     } catch (error) {
-      console.warn('Güvenli alan analizi başarısız:', error);
-      setErrorMessage('Analiz sırasında bir hata oluştu. Lütfen tekrar dene.');
-      Alert.alert('Hata', 'Analiz sırasında bir sorun oluştu.');
+      console.warn('Safe spot analysis failed:', error);
+      setErrorMessage(t('analysisFailed'));
+      Alert.alert(t('errorOccurred'), t('analysisProblem'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -161,14 +153,14 @@ const SafeSpotScreen = () => {
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Hata', 'Fotoğraf seçilemedi.');
+        Alert.alert(t('error'), t('photoPickFailed'));
         return;
       }
 
       await analyzePhoto(asset.uri, { width: asset.width, height: asset.height });
     } catch (error) {
-      console.warn('Galeri hatası:', error);
-      Alert.alert('Hata', 'Galeriden fotoğraf seçilirken bir sorun oluştu.');
+      console.warn('Gallery error:', error);
+      Alert.alert(t('error'), t('galleryError'));
     }
   };
 
@@ -191,14 +183,14 @@ const SafeSpotScreen = () => {
 
       const asset = result.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Hata', 'Fotoğraf alınamadı.');
+        Alert.alert(t('error'), t('photoPickFailed'));
         return;
       }
 
       await analyzePhoto(asset.uri, { width: asset.width, height: asset.height });
     } catch (error) {
-      console.warn('Kamera hatası:', error);
-      Alert.alert('Hata', 'Fotoğraf çekilirken bir sorun oluştu.');
+      console.warn('Camera error:', error);
+      Alert.alert(t('error'), t('cameraError'));
     }
   };
 
@@ -233,14 +225,12 @@ const SafeSpotScreen = () => {
         bounces={true}
       >
         <View style={styles.photoCard}>
-          <Text style={styles.photoTitle}>Alanını kontrol et</Text>
-          <Text style={styles.photoText}>
-            Yapay zeka destekli analiz ile odandaki güvenli ve riskli bölgeleri işaretleyebilirsin.
-          </Text>
+          <Text style={styles.photoTitle}>{t('checkYourSpace')}</Text>
+          <Text style={styles.photoText}>{t('checkSpaceDesc')}</Text>
           <View style={styles.buttonRow}>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : 'Fotoğraf Çek'}
+                title={isAnalyzing ? t('analyzingPhoto') : t('takePhoto')}
                 onPress={handleAnalyzePhoto}
                 disabled={isAnalyzing}
                 style={styles.tallButton}
@@ -248,7 +238,7 @@ const SafeSpotScreen = () => {
             </View>
             <View style={styles.buttonWrapper}>
               <PrimaryButton
-                title={isAnalyzing ? 'Analiz ediliyor...' : 'Galeriden Seç'}
+                title={isAnalyzing ? t('analyzingPhoto') : t('fromGallery')}
                 onPress={handlePickFromGallery}
                 disabled={isAnalyzing}
                 style={styles.tallButton}
@@ -258,7 +248,7 @@ const SafeSpotScreen = () => {
           {isAnalyzing && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#f8fafc" size="small" />
-              <Text style={styles.loadingText}>Fotoğraf inceleniyor...</Text>
+              <Text style={styles.loadingText}>{t('reviewingPhoto')}</Text>
             </View>
           )}
           {statusMessage ? <Text style={styles.photoHint}>{statusMessage}</Text> : null}
@@ -272,11 +262,11 @@ const SafeSpotScreen = () => {
               <View style={styles.previewCard}>
                 <View style={styles.providerHeader}>
                   <Text style={styles.providerTitle}>
-                    {openAiAnalysis.provider || (openAiIsAi ? 'Yapay Zeka Analizi' : 'Genel Rehber')}
+                    {openAiAnalysis.provider || (openAiIsAi ? t('aiAnalysisLabel') : t('generalGuideLabel'))}
                   </Text>
                   {openAiAnalysis.error && (
                     <View style={styles.errorBox}>
-                      <Text style={styles.errorTitle}>⚠️ Hata Oluştu</Text>
+                      <Text style={styles.errorTitle}>{t('errorOccurred')}</Text>
                       <Text style={styles.providerError}>{openAiAnalysis.error}</Text>
                     </View>
                   )}

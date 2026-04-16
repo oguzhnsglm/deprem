@@ -3,9 +3,9 @@ import { View, SafeAreaView, StyleSheet } from 'react-native';
 
 const VARIANTS = {
   modern: '#0A0F1E',
-  pink: '#160E1E',
-  crimson: '#1A0E0E',
-  green: '#0E1A10',
+  pink: '#0A0F1E',
+  crimson: '#0A0F1E',
+  green: '#0A0F1E',
 };
 
 const ScreenWrapper = ({ children, variant = 'modern' }) => {

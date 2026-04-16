@@ -1,52 +1,59 @@
 import React, { useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from '../i18n/index';
+import { navigateTabRoute } from '../navigation/tabOrder';
 
 const BottomNavBar = ({ activeTab = 'home', city, floating = false, navigation }) => {
-  if (!navigation) {
-    return null;
-  }
-
-  const routeNames = navigation?.getState?.()?.routeNames || [];
-  const hasMapExplorer = routeNames.includes('MapExplorer');
+  const { t } = useTranslation();
   const selectedCity = city || 'Istanbul';
   const AnimatedTouchable = useMemo(() => Animated.createAnimatedComponent(TouchableOpacity), []);
-
-  const handleNavigate = (key) => {
-    if (!navigation) {
-      return;
-    }
-    switch (key) {
-      case 'home':
-        navigation.navigate('Home');
-        break;
-      case 'map':
-        if (hasMapExplorer) {
-          navigation.navigate('MapExplorer');
-        } else {
-          navigation.navigate('EarthquakeFeed', { city: selectedCity });
-        }
-        break;
-      case 'earthquake':
-        navigation.navigate('EarthquakeFeed', { city: selectedCity });
-        break;
-      case 'profile':
-        navigation.navigate('Profile');
-        break;
-      default:
-        break;
-    }
-  };
-
   const navItems = [
-    { key: 'home', label: 'Ana Sayfa' },
-    { key: 'map', label: 'Harita' },
-    { key: 'earthquake', label: 'Geçmiş' },
-    { key: 'profile', label: 'Profil' },
+    { key: 'home', label: t('navHome') },
+    { key: 'map', label: t('navMap') },
+    { key: 'earthquake', label: t('navHistory') },
+    { key: 'profile', label: t('navProfile') },
   ];
 
   const pressAnimations = useRef(
     navItems.reduce((acc, item) => ({ ...acc, [item.key]: new Animated.Value(1) }), {})
   ).current;
+
+  if (!navigation?.isReady?.()) {
+    return null;
+  }
+
+  const routeNames = navigation?.getState?.()?.routeNames || [];
+  const hasMapExplorer = routeNames.includes('MapExplorer');
+  const currentRoute = navigation?.getCurrentRoute?.()?.name;
+
+  const handleNavigate = (key) => {
+    if (!navigation?.isReady?.()) {
+      return;
+    }
+    const navigateTab = (target, params = {}) => {
+      navigateTabRoute(navigation, routeNames, currentRoute, target, params);
+    };
+    switch (key) {
+      case 'home':
+        navigateTab('Home');
+        break;
+      case 'map':
+        if (hasMapExplorer) {
+          navigateTab('MapExplorer');
+        } else {
+          navigateTab('EarthquakeFeed', { city: selectedCity });
+        }
+        break;
+      case 'earthquake':
+        navigateTab('EarthquakeFeed', { city: selectedCity });
+        break;
+      case 'profile':
+        navigateTab('Profile');
+        break;
+      default:
+        break;
+    }
+  };
 
   const animatePress = (key) => {
     const anim = pressAnimations[key];

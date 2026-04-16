@@ -7,6 +7,7 @@ import { getProfilePreferences } from '../logic/profileStore';
 import { getCurrentUser } from '../logic/authStore';
 import { loadContacts } from '../logic/contactsService';
 import { getCountryConfig } from '../logic/countryConfig';
+import { useTranslation } from '../i18n/index';
 const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
 const normalizePhoneDigits = (value) => String(value || '').replace(/\D/g, '');
 const resolveWhatsAppPhone = (contact) => {
@@ -28,15 +29,14 @@ const resolveWhatsAppPhone = (contact) => {
 
 const AlertScreen = ({ route }) => {
   const { status = 'İyiyim' } = route.params || {};
+  const { t } = useTranslation();
   const [whatsAppHint, setWhatsAppHint] = useState('');
   const [recipientQueue, setRecipientQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [queueMessage, setQueueMessage] = useState('');
   const profile = getProfilePreferences();
   const countryConfig = getCountryConfig(profile.country || 'TR');
-  const emergencyNumbers = countryConfig.emergencyNumbers || [{ label: 'Acil', value: '112' }];
-  const defaultWhatsAppHint =
-    "WhatsApp üzerinden kayıtlı kişilerin sohbeti sırayla açılır; her sohbet için Gönder'e dokun. Sonraki kişi için Sıradaki kişi butonunu kullan.";
+  const emergencyNumbers = countryConfig.emergencyNumbers || [{ label: 'Emergency', value: '112' }];
   const fullName = [profile.name, profile.surname]
     .map((value) => value?.trim())
     .filter(Boolean)
@@ -44,13 +44,13 @@ const AlertScreen = ({ route }) => {
 
   const resolveLocationText = useCallback(async () => {
     if (!isNativePlatform) {
-      return 'Konum tarayıcıda paylaşılamadı.';
+      return t('locationBrowserError');
     }
 
     try {
       const { status: permissionStatus } = await Location.requestForegroundPermissionsAsync();
       if (permissionStatus !== 'granted') {
-        return 'Konum izni verilmedi.';
+        return t('locationPermDeniedShort');
       }
 
       const { coords } = await Location.getCurrentPositionAsync({
@@ -58,14 +58,14 @@ const AlertScreen = ({ route }) => {
       });
 
       if (!coords) {
-        return 'Konum alınamadı.';
+        return t('locationError');
       }
 
       const latitude = coords.latitude.toFixed(5);
       const longitude = coords.longitude.toFixed(5);
       return `${latitude}, ${longitude} (https://maps.google.com/?q=${coords.latitude},${coords.longitude})`;
     } catch (error) {
-      return 'Konum alınamadı.';
+      return t('locationError');
     }
   }, []);
 
@@ -101,7 +101,7 @@ const AlertScreen = ({ route }) => {
         await Linking.openURL(canOpen ? tryLink : webLink);
         return true;
       } catch (error) {
-        setWhatsAppHint('WhatsApp açılamadı, linki manuel paylaşıp göndermeyi deneyebilirsin.');
+        setWhatsAppHint(t('whatsappOpenFailed'));
         Linking.openURL(webLink).catch(() => {});
         return false;
       }
@@ -113,7 +113,7 @@ const AlertScreen = ({ route }) => {
     const user = getCurrentUser();
     const contacts = user ? await loadContacts(user.id) : [];
     if (!contacts.length) {
-      setWhatsAppHint('Acil durum kişisi bulunamadı. Önce kişi ekleyin.');
+      setWhatsAppHint(t('noContacts'));
       setRecipientQueue([]);
       setQueueIndex(-1);
       setQueueMessage('');
@@ -128,40 +128,38 @@ const AlertScreen = ({ route }) => {
       .filter((contact) => contact.whatsappPhone);
 
     if (!recipients.length) {
-      setWhatsAppHint('Acil durum kişileri için geçerli telefon bulunamadı.');
+      setWhatsAppHint(t('noValidPhone'));
       setRecipientQueue([]);
       setQueueIndex(-1);
       setQueueMessage('');
       return;
     }
 
-    const timeText = new Date().toLocaleString('tr-TR');
+    const timeText = new Date().toLocaleString();
     const locationText = await resolveLocationText();
     const message = buildWhatsAppMessage(locationText, timeText);
 
     setRecipientQueue(recipients);
     setQueueMessage(message);
     setQueueIndex(0);
-    setWhatsAppHint(`1/${recipients.length} kişi için WhatsApp açılıyor. Sonraki kişi için butona dokun.`);
+    setWhatsAppHint(t('whatsappOpeningN', { index: 1, total: recipients.length }));
     await openWhatsAppForRecipient(recipients[0], message);
   }, [buildWhatsAppMessage, openWhatsAppForRecipient, resolveLocationText]);
 
   const handleNextRecipient = useCallback(async () => {
     if (!recipientQueue.length) {
-      setWhatsAppHint('Önce WhatsApp gönderimini başlat.');
+      setWhatsAppHint(t('startWhatsappFirst'));
       return;
     }
 
     const nextIndex = queueIndex + 1;
     if (nextIndex >= recipientQueue.length) {
-      setWhatsAppHint('Tüm kişiler için WhatsApp açıldı.');
+      setWhatsAppHint(t('allWhatsappOpened'));
       return;
     }
 
     setQueueIndex(nextIndex);
-    setWhatsAppHint(
-      `${nextIndex + 1}/${recipientQueue.length} kişi için WhatsApp açılıyor. Sonraki kişi için butona dokun.`
-    );
+    setWhatsAppHint(t('whatsappOpeningN', { index: nextIndex + 1, total: recipientQueue.length }));
     await openWhatsAppForRecipient(recipientQueue[nextIndex], queueMessage);
   }, [openWhatsAppForRecipient, queueIndex, queueMessage, recipientQueue]);
 
@@ -173,25 +171,19 @@ const AlertScreen = ({ route }) => {
   const hasQueue = recipientQueue.length > 0 && queueIndex >= 0;
   const hasNextRecipient = hasQueue && queueIndex < recipientQueue.length - 1;
   const nextButtonLabel = hasNextRecipient
-    ? `Sıradaki kişi (${queueIndex + 2}/${recipientQueue.length})`
-    : 'Sıradaki kişi';
+    ? t('nextContactN', { index: queueIndex + 2, total: recipientQueue.length })
+    : t('nextContact');
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.statusCard}>
-          <Text style={styles.label}>Durumun kaydedildi</Text>
+          <Text style={styles.label}>{t('statusSaved')}</Text>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{status}</Text>
           </View>
-          <Text style={styles.statusInfo}>
-            Bu bilgi panik anında paylaşım için hazırlandı. Yakının, hangi desteği vermesi gerektiğini saniyeler içinde
-            öğrenebilir.
-          </Text>
-          <Text style={styles.statusNote}>
-            Kaydettiğin acil durum kişilerine bildirim gönderildi. Eğer durum kritikse aşağıdaki acil numaralardan birini
-            aramayı unutma.
-          </Text>
+          <Text style={styles.statusInfo}>{t('statusInfo')}</Text>
+          <Text style={styles.statusNote}>{t('statusNote')}</Text>
         </View>
 
         <View style={styles.emergencyButtons}>
@@ -208,13 +200,13 @@ const AlertScreen = ({ route }) => {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.emergencyHint}>Numaraya dokunduğunda telefon uygulaması açılır.</Text>
+          <Text style={styles.emergencyHint}>{t('dialHint')}</Text>
         </View>
 
         <View style={styles.whatsAppSection}>
           {!hasQueue ? (
             <PrimaryButton
-              title="Yakınlarıma bildirim gönder"
+              title={t('notifyContacts')}
               onPress={handleWhatsAppShare}
               colorScheme={{ start: '#15803d', end: '#166534', shadow: '#14532d', ripple: 'rgba(21,128,61,0.35)' }}
               style={styles.notifyButton}
@@ -231,10 +223,7 @@ const AlertScreen = ({ route }) => {
           {whatsAppHint ? <Text style={styles.whatsAppHint}>{whatsAppHint}</Text> : null}
         </View>
 
-        <Text style={styles.note}>
-          Bu ekran aile bireylerine gönderilecek bildirimin taslağıdır. Konum bilgilerinin otomatik paylaşımı ve acil bildirim
-          entegrasyonları prototip sonrasında eklenecektir.
-        </Text>
+        <Text style={styles.note}>{t('alertNote')}</Text>
       </View>
     </ScreenWrapper>
   );
