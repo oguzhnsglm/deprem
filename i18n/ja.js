@@ -119,6 +119,7 @@ const ja = {
   faultDistLabel: '断層線距離',
   slipRateLabel: 'すべり速度',
   slipRateUnit: 'mm/年',
+  expectedMagnitudeLabel: '想定最大規模',
   riskInfoTitle: '地震リスク分析',
   riskInfoBody: 'このスコアはGEMグローバルハザードマップを基に、断層距離とすべり速度で調整されています。情報提供のみを目的とし、公式の地盤調査の代替にはなりません。',
   locationPermTitle: '位置情報の許可が必要',

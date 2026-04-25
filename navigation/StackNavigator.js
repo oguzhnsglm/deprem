@@ -8,6 +8,8 @@ import AlertScreen from '../screens/AlertScreen';
 import ContactsScreen from '../screens/ContactsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EarthquakeFeedScreen from '../screens/EarthquakeFeedScreen';
+import DataSourcesScreen from '../screens/DataSourcesScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 
 // Conditionally import MapExplorerScreen only on native platforms
 let MapExplorerScreen = null;
@@ -41,6 +43,8 @@ const StackNavigator = () => {
       <Stack.Screen name="Alert" component={AlertScreen} options={{ title: 'Durum Bildirimi' }} />
       <Stack.Screen name="Contacts" component={ContactsScreen} options={{ title: 'Acil Durum Kişileri' }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilim', headerBackVisible: false }} />
+      <Stack.Screen name="DataSources" component={DataSourcesScreen} options={{ title: 'Veri Kaynaklari ve Lisanslar' }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Gizlilik Politikasi' }} />
       <Stack.Screen
         name="EarthquakeFeed"
         component={EarthquakeFeedScreen}

@@ -200,6 +200,30 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           ) : null}
 
+          <TouchableOpacity
+            style={styles.legalButton}
+            onPress={() => navigation.navigate('DataSources')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.legalButtonTextWrap}>
+              <Text style={styles.legalButtonTitle}>{t('dataSourcesTitle')}</Text>
+              <Text style={styles.legalButtonSubtitle}>{t('dataSourcesLinkHint')}</Text>
+            </View>
+            <Text style={styles.legalButtonArrow}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.legalButton}
+            onPress={() => navigation.navigate('PrivacyPolicy')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.legalButtonTextWrap}>
+              <Text style={styles.legalButtonTitle}>{t('privacyPolicyTitle')}</Text>
+              <Text style={styles.legalButtonSubtitle}>{t('privacyPolicyLinkHint')}</Text>
+            </View>
+            <Text style={styles.legalButtonArrow}>›</Text>
+          </TouchableOpacity>
+
           {/* EDIT MODE */}
           {isEditing ? (
             <View style={styles.card}>
@@ -509,6 +533,38 @@ const styles = StyleSheet.create({
   modalItemText: { color: '#94A3B8', fontSize: 16, textAlign: 'center', fontWeight: '600' },
   modalItemTextActive: { fontWeight: '800', color: '#38BDF8' },
   sourceHintText: { color: '#38BDF8', fontSize: 11, textAlign: 'center', marginTop: 2, fontWeight: '600' },
+  legalButton: {
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.16)',
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  legalButtonTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  legalButtonTitle: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  legalButtonSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  legalButtonArrow: {
+    color: '#38BDF8',
+    fontSize: 28,
+    fontWeight: '300',
+  },
 });
 
 export default ProfileScreen;

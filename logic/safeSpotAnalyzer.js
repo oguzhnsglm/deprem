@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabase } from '../lib/supabase';
 
 const normalizeApiBase = (rawBase = '') => {
   let cleaned = String(rawBase || '').trim().replace(/\/+$/, '');
@@ -99,9 +100,19 @@ const analyzePhotoOnServer = async ({ base64Image, imageDimensions }) => {
     throw new Error('EXPO_PUBLIC_API_BASE yapılandırılmadı.');
   }
 
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+  } catch (_e) {
+    // Session alınamazsa authsız gönder — server auth zorunlu değilse devam eder
+  }
+
   const response = await fetch(`${SAFE_SPOT_API_BASE}/api/safe-spot/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       imageBase64: base64Image,
       imageWidth: imageDimensions?.width || 1080,
@@ -112,9 +123,9 @@ const analyzePhotoOnServer = async ({ base64Image, imageDimensions }) => {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload?.error || `Safe spot server error ${response.status}`);
+    throw new Error(payload?.error?.message || payload?.error || `Safe spot server error ${response.status}`);
   }
-  return payload;
+  return payload?.data || payload;
 };
 
 export const analyzeSafeSpotPhoto = async (photoUri, imageDimensions) => {

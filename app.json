@@ -5,27 +5,61 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "jsEngine": "hermes",
+    "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
+      "package": "com.oguzhnsglm.deprem",
+      "versionCode": 1,
       "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "RECORD_AUDIO",
         "CAMERA",
         "READ_MEDIA_IMAGES",
-        "READ_EXTERNAL_STORAGE"
-      ],
-      "package": "com.oguzhnsglm.deprem"
+        "READ_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "ios": {
+      "bundleIdentifier": "com.oguzhnsglm.deprem",
+      "buildNumber": "1",
+      "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Guvenli alan analizi icin kameraya ihtiyac var.",
-        "NSPhotoLibraryAddUsageDescription": "Gonderilen fotograflari cihaza kaydedebilmek icin izin gerekiyor.",
-        "NSPhotoLibraryUsageDescription": "Guvenli alan analizi icin fotograf yukleyebilmemiz gerekiyor."
+        "NSLocationWhenInUseUsageDescription": "Yakınınızdaki depremleri, güvenli toplanma alanlarını ve risk haritasını gösterebilmemiz için konumunuza ihtiyaç var. Konum yalnızca uygulamayı kullandığınız sırada işlenir.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Büyük deprem uyarılarını arka planda da iletebilmemiz için konumunuza ihtiyaç var. Konum yalnızca uyarı değerlendirmesi için kullanılır.",
+        "NSCameraUsageDescription": "Güvenli alan analizi sırasında ortamın fotoğrafını çekebilmek için kamera izni gereklidir.",
+        "NSPhotoLibraryUsageDescription": "Güvenli alan analizi için galerinizden fotoğraf seçebilmemiz gerekir.",
+        "NSPhotoLibraryAddUsageDescription": "Oluşturulan raporları ve fotoğrafları cihazınıza kaydedebilmek için izin gerekir.",
+        "NSMicrophoneUsageDescription": "Acil durumlarda sesli komut ile yardım çağırabilmeniz için mikrofon erişimi gereklidir.",
+        "NSSpeechRecognitionUsageDescription": "Sesli komutlarınızı tanıyarak acil durum aksiyonlarını başlatabilmek için konuşma tanıma izni gereklidir.",
+        "NSUserTrackingUsageDescription": "Uygulama reklam veya üçüncü taraf izleme yapmaz; bu izin yalnızca sistem gereği istenir.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Büyük deprem uyarılarını arka planda iletebilmemiz için konum izni gereklidir."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Güvenli alan analizi için galerinizden fotoğraf seçebilmemiz gerekir.",
+          "cameraPermission": "Güvenli alan analizi sırasında ortamın fotoğrafını çekebilmek için kamera izni gereklidir."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Acil durumlarda sesli komut ile yardım çağırabilmeniz için mikrofon erişimi gereklidir."
+        }
+      ]
     ]
   }
 }

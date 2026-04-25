@@ -119,6 +119,7 @@ const fa = {
   faultDistLabel: 'فاصله تا خط گسل',
   slipRateLabel: 'نرخ لغزش',
   slipRateUnit: 'میلی‌متر/سال',
+  expectedMagnitudeLabel: 'بیشینه بزرگی مورد انتظار',
   riskInfoTitle: 'تحلیل ریسک لرزه‌ای',
   riskInfoBody: 'این امتیاز بر اساس نقشه خطر جهانی GEM، با تنظیم بر اساس فاصله گسل و نرخ لغزش است. صرفاً جهت اطلاع‌رسانی.',
   locationPermTitle: 'دسترسی به موقعیت مکانی لازم است',

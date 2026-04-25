@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuakeGuide — Gizlilik Politikası</title>
+  <meta name="description" content="QuakeGuide mobil uygulamasının gizlilik politikası, KVKK ve GDPR beyanları." />
+  <style>
+    :root {
+      --bg: #0a0f1e;
+      --card: #0f172a;
+      --border: rgba(255,255,255,0.08);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 48px 24px 96px; }
+    header { margin-bottom: 32px; }
+    .logo { display: inline-block; padding: 6px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+    h1 { font-size: 32px; font-weight: 900; margin: 0 0 8px; letter-spacing: -0.5px; }
+    .updated { color: var(--accent); font-size: 13px; font-weight: 800; margin-bottom: 14px; }
+    .lead { color: var(--muted); font-size: 15px; }
+    .contact-card { background: var(--accent-soft); border: 1px solid rgba(56,189,248,0.18); border-radius: 16px; padding: 20px; margin: 28px 0; }
+    .contact-card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #7dd3fc; }
+    .contact-card p { margin: 4px 0; color: #cbd5e1; font-size: 14px; }
+    .section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 14px; }
+    .section h2 { margin: 0 0 12px; font-size: 18px; font-weight: 800; color: #f8fafc; }
+    .section ul { margin: 0; padding-left: 18px; color: #cbd5e1; font-size: 14px; }
+    .section li { margin-bottom: 8px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .lang-switch { text-align: right; margin-bottom: 16px; font-size: 13px; }
+    .lang-switch a { margin-left: 10px; color: var(--muted); }
+    .lang-switch a.active { color: var(--accent); font-weight: 800; }
+    footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 12px; }
+    [lang="en"] { display: none; }
+    body.en [lang="tr"] { display: none; }
+    body.en [lang="en"] { display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="lang-switch">
+      <a href="#tr" onclick="document.body.classList.remove('en')" class="tr-link active">TR</a>
+      <a href="#en" onclick="document.body.classList.add('en')" class="en-link">EN</a>
+    </div>
+
+    <header>
+      <span class="logo">QuakeGuide</span>
+      <h1 lang="tr">Gizlilik ve Veri Politikası</h1>
+      <h1 lang="en">Privacy &amp; Data Policy</h1>
+      <p class="updated" lang="tr">Son güncelleme: 22 Nisan 2026</p>
+      <p class="updated" lang="en">Last updated: April 22, 2026</p>
+      <p class="lead" lang="tr">QuakeGuide; yer bilimleri ve acil durum yönetimi için bir mobil araçtır. Kullanıcı deneyimini güçlendirmek ve acil durumlarda doğru fonksiyonları çalıştırabilmek adına bazı cihaz izinlerine ihtiyaç duyarız. Kişisel verilerinizi yalnızca belirtilen amaçlarla işler, izinsiz paylaşmaz ve üçüncü taraflara satmayız.</p>
+      <p class="lead" lang="en">QuakeGuide is a mobile tool for geosciences and emergency management. We require certain device permissions to strengthen user experience and to run critical functions during emergencies. We process personal data only for stated purposes and never sell it to third parties.</p>
+    </header>
+
+    <div class="contact-card">
+      <h3 lang="tr">İletişim</h3>
+      <h3 lang="en">Contact</h3>
+      <p><strong>Geliştirici / Developer:</strong> Oğuzhan Sağlam</p>
+      <p><strong>E-posta / Email:</strong> <a href="mailto:quakeguide.support@gmail.com">quakeguide.support@gmail.com</a></p>
+      <p><strong>Yargı yetkisi / Jurisdiction:</strong> Türkiye</p>
+    </div>
+
+    <!-- Türkçe -->
+    <div lang="tr">
+      <div class="section">
+        <h2>1. Topladığımız Veriler</h2>
+        <ul>
+          <li>Profil bilgileri: ad, soyad, yaş, adres, ülke, şehir/eyalet, dil tercihi ve deprem bildirim eşiği.</li>
+          <li>Hesap ve oturum bilgileri: Supabase Authentication tarafından yönetilen kullanıcı kimliği ve oturum verileri.</li>
+          <li>Acil durum kişileri: kullanıcının eklediği kişi adı, yakınlık derecesi, telefon ve e-posta bilgileri.</li>
+          <li>Konum bilgisi: haritada mevcut konumu göstermek, nokta bazlı zemin/fay analizi yapmak ve acil durum paylaşım metni hazırlamak için kullanılır.</li>
+          <li>Kamera/galeri içeriği: Güvenli Alan Analizi için kullanıcının seçtiği veya çektiği fotoğraf işlenir.</li>
+          <li>Teknik veriler: server istek kayıtları, hata durumları, istek zamanı, endpoint ve performans bilgileri.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>2. Verileri Nasıl Kullanıyoruz</h2>
+        <ul>
+          <li>Deprem geçmişini kullanıcının seçtiği ülke ve şehir/eyalet tercihine göre göstermek.</li>
+          <li>Haritada Vs30 zemin bilgisi, fay mesafesi ve sismik risk analizini hesaplamak.</li>
+          <li>Kullanıcının bildirim eşiği ve konum tercihlerine göre uyarı deneyimini kişiselleştirmek.</li>
+          <li>Acil durumda kullanıcının seçtiği kişilere gönderilecek mesaj taslaklarını hazırlamak.</li>
+          <li>Güvenli Alan Analizi özelliğinde fotoğraf üzerinden güvenli/riskli bölgeleri önermek.</li>
+          <li>Hata ayıklama, güvenlik, kötüye kullanım önleme, performans ve servis sürekliliği sağlamak.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>3. Üçüncü Taraf Servisler</h2>
+        <ul>
+          <li><strong>Supabase:</strong> kullanıcı hesabı, profil, acil kişi ve uygulama verilerini saklamak için kullanılır.</li>
+          <li><strong>OpenAI:</strong> Güvenli Alan Analizi sırasında fotoğraf, yalnızca server üzerinden OpenAI API'ye iletilir. OpenAI API anahtarı uygulama içinde tutulmaz.</li>
+          <li><strong>Deprem ve harita veri kaynakları:</strong> USGS, Kandilli, INGV, JMA/P2PQuake, GeoNet, BMKG, GEM/OpenQuake ve Vs30/fay veri setleri uygulamaya kendi server/cache katmanımız üzerinden aktarılır.</li>
+          <li><strong>Harici uygulamalar:</strong> WhatsApp, SMS veya telefon paylaşımı kullanıcının cihazında ve onayıyla gerçekleşir.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Saklama ve Silme</h2>
+        <ul>
+          <li>Profil, acil kişi, bildirim ve kullanıcı tercihleri hesap aktif olduğu sürece saklanabilir.</li>
+          <li>Kullanıcı, profil ve acil kişi bilgilerini uygulama içinden güncelleyebilir veya silebilir.</li>
+          <li>Server logları güvenlik ve hata ayıklama için en fazla 30 gün tutulur.</li>
+          <li>Hesap ve veri silme talepleri <a href="mailto:quakeguide.support@gmail.com">quakeguide.support@gmail.com</a> adresine iletilebilir; talepler en geç 30 gün içinde değerlendirilir.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>5. Güvenlik</h2>
+        <ul>
+          <li>Hassas API anahtarları client uygulamasında tutulmaz; OpenAI anahtarı server tarafındadır.</li>
+          <li>Supabase tablolarında Row Level Security (RLS) politikaları uygulanır.</li>
+          <li>Server, veri kaynaklarına yapılan istekleri cache ve rate limit katmanından geçirir.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. Kullanıcı Hakları (KVKK / GDPR)</h2>
+        <ul>
+          <li>Kullanıcılar profil, acil kişi ve uygulama tercihlerini görüntüleyebilir, güncelleyebilir veya silebilir.</li>
+          <li>KVKK ve GDPR kapsamındaki erişim, düzeltme, silme, itiraz ve veri taşınabilirliği talepleri <a href="mailto:quakeguide.support@gmail.com">quakeguide.support@gmail.com</a> adresine iletilebilir.</li>
+          <li>Konum, kamera ve galeri izinleri cihaz ayarlarından geri alınabilir.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>7. Çocuklar</h2>
+        <ul>
+          <li>Uygulama çocuklara özel olarak tasarlanmamıştır. 13 yaş altı kullanıcılardan bilerek kişisel veri toplanmaz.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>8. Değişiklikler</h2>
+        <ul>
+          <li>Bu politika, yasal ya da teknik gereksinimlere göre güncellenebilir. Önemli değişiklikler uygulama içinde duyurulur.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- English -->
+    <div lang="en">
+      <div class="section">
+        <h2>1. Data We Collect</h2>
+        <ul>
+          <li>Profile: name, age, address, country, city/state, language preference, earthquake alert threshold.</li>
+          <li>Account &amp; session: user identifier and session data managed by Supabase Authentication.</li>
+          <li>Emergency contacts: user-added contact name, relationship, phone, and email.</li>
+          <li>Location: to show current position on the map, compute point-based soil/fault analysis, and prepare emergency share text.</li>
+          <li>Camera/gallery: the photo the user chooses or captures for Safe Spot Analysis.</li>
+          <li>Technical: server request logs, errors, timestamps, endpoints, and performance metrics.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>2. How We Use Data</h2>
+        <ul>
+          <li>Show earthquake history based on the user's chosen country and city/state.</li>
+          <li>Compute Vs30 soil info, fault distance, and seismic risk on the map.</li>
+          <li>Personalize alerts based on the user's threshold and location preferences.</li>
+          <li>Draft messages for the user's selected emergency contacts.</li>
+          <li>Suggest safe/risky zones in the Safe Spot Analysis feature.</li>
+          <li>Debugging, security, abuse prevention, performance, and service continuity.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>3. Third Parties</h2>
+        <ul>
+          <li><strong>Supabase:</strong> stores user account, profile, emergency contacts, and app data.</li>
+          <li><strong>OpenAI:</strong> Safe Spot photos are sent to OpenAI only through our server. The API key is never exposed in the app.</li>
+          <li><strong>Earthquake &amp; map sources:</strong> USGS, Kandilli, INGV, JMA/P2PQuake, GeoNet, BMKG, GEM/OpenQuake, and Vs30/fault datasets are routed via our server/cache layer.</li>
+          <li><strong>External apps:</strong> WhatsApp, SMS, or phone sharing occur on the user's device with explicit consent.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Retention &amp; Deletion</h2>
+        <ul>
+          <li>Profile, emergency contacts, notifications, and preferences are retained while the account is active.</li>
+          <li>Users can update or delete profile and emergency contacts in-app.</li>
+          <li>Server logs are retained for up to 30 days for security and debugging.</li>
+          <li>Account and data deletion requests can be sent to <a href="mailto:quakeguide.support@gmail.com">quakeguide.support@gmail.com</a> and are processed within 30 days.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>5. Security</h2>
+        <ul>
+          <li>Sensitive API keys (OpenAI) are kept server-side only.</li>
+          <li>Supabase tables use Row Level Security (RLS).</li>
+          <li>The server applies caching and rate limiting to upstream calls.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. User Rights (KVKK / GDPR)</h2>
+        <ul>
+          <li>Users can view, update, or delete profile, emergency contacts, and app preferences.</li>
+          <li>GDPR/KVKK requests for access, rectification, erasure, objection, or portability can be sent to <a href="mailto:quakeguide.support@gmail.com">quakeguide.support@gmail.com</a>.</li>
+          <li>Location, camera, and gallery permissions can be revoked from device settings.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>7. Children</h2>
+        <ul>
+          <li>The app is not directed at children. We do not knowingly collect personal data from users under 13.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>8. Changes</h2>
+        <ul>
+          <li>This policy may be updated for legal or technical reasons. Material changes will be announced in the app.</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      © 2026 Oğuzhan Sağlam · QuakeGuide
+    </footer>
+  </div>
+  <script>
+    if (location.hash === '#en') document.body.classList.add('en');
+  </script>
+</body>
+</html>

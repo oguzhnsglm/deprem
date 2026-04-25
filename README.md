@@ -119,14 +119,8 @@ Expo Go uygulamasÄ±yla terminal veya tarayÄ±cÄ±da gÃ¶sterilen QR kodu ok
 `.env` dosyasÄ±nÄ± proje kÃ¶kÃ¼nde oluÅŸturun:
 
 ```env
-# Harita â€” Google Maps (isteÄŸe baÄŸlÄ±, yoksa varsayÄ±lan harita kullanÄ±lÄ±r)
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-
-
 # Yerel VS30 / Fay sunucusu â€” bilgisayarÄ±nÄ±zÄ±n yerel IP adresi
 # Windows: ipconfig â†’ "IPv4 Address" deÄŸerini kullanÄ±n
-EXPO_PUBLIC_VS30_API_BASE=http://192.168.1.xxx:4000
-EXPO_PUBLIC_MAP_API_BASE=http://192.168.1.xxx:4000
 EXPO_PUBLIC_API_BASE=http://192.168.1.xxx:4000
 
 # Supabase

@@ -119,6 +119,7 @@ const hi = {
   faultDistLabel: 'भ्रंश रेखा दूरी',
   slipRateLabel: 'स्लिप दर',
   slipRateUnit: 'मिमी/वर्ष',
+  expectedMagnitudeLabel: 'अनुमानित अधिकतम परिमाण',
   riskInfoTitle: 'भूकंपीय जोखिम विश्लेषण',
   riskInfoBody: 'यह स्कोर GEM वैश्विक खतरा मानचित्र पर आधारित है, भ्रंश दूरी और स्लिप दर द्वारा समायोजित। केवल सूचनात्मक उद्देश्यों के लिए।',
   locationPermTitle: 'स्थान अनुमति आवश्यक है',

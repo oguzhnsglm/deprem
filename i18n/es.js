@@ -119,6 +119,7 @@ const es = {
   faultDistLabel: 'Distancia a Falla',
   slipRateLabel: 'Tasa de Deslizamiento',
   slipRateUnit: 'mm/año',
+  expectedMagnitudeLabel: 'Magnitud Máx. Esperada',
   riskInfoTitle: 'Análisis de Riesgo Sísmico',
   riskInfoBody: 'Esta puntuación se basa en el mapa global de peligrosidad GEM, ajustada por distancia a fallas y tasa de deslizamiento. Solo con fines informativos.',
   locationPermTitle: 'Permiso de Ubicación Requerido',

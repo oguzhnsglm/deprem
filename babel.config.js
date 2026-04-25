@@ -1,21 +1,23 @@
 module.exports = function (api) {
   api.cache(true);
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.BABEL_ENV === 'production';
+  const plugins = [
+    [
+      'transform-inline-environment-variables',
+      {
+        include: [
+          'EXPO_PUBLIC_API_BASE',
+        ],
+      },
+    ],
+  ];
+
+  if (isProduction) {
+    plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }]);
+  }
+
   return {
     presets: ['babel-preset-expo'],
-    plugins: [
-      [
-        'transform-inline-environment-variables',
-        {
-          include: [
-            'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY',
-            'EXPO_PUBLIC_VS30_API_BASE',
-            'EXPO_PUBLIC_MAP_API_BASE',
-            'EXPO_PUBLIC_FAULT_API_BASE',
-            'EXPO_PUBLIC_MAP_FETCH_TIMEOUT_MS',
-            'EXPO_PUBLIC_API_BASE',
-          ],
-        },
-      ],
-    ],
+    plugins,
   };
 };

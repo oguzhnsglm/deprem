@@ -119,6 +119,7 @@ const it = {
   faultDistLabel: 'Distanza Linea di Faglia',
   slipRateLabel: 'Velocità di Scorrimento',
   slipRateUnit: 'mm/anno',
+  expectedMagnitudeLabel: 'Magnitudo Max Attesa',
   riskInfoTitle: 'Analisi Rischio Sismico',
   riskInfoBody: 'Questo punteggio è basato sulla mappa di pericolosità globale GEM, aggiustata per distanza dalla faglia e velocità di scorrimento. Solo a scopo informativo.',
   locationPermTitle: 'Autorizzazione Posizione Richiesta',

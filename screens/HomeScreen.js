@@ -188,6 +188,7 @@ const HomeScreen = ({ navigation }) => {
             </View>
             <Text style={styles.sourceLabel}>{sourceText}</Text>
           </View>
+          <Text style={styles.disclaimerText}>{t('informationalOnlyShort')}</Text>
 
           {isLoading ? (
             <View style={styles.loaderRow}>
@@ -285,6 +286,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  disclaimerText: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   loaderRow: {
     paddingVertical: 14,

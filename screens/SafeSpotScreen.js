@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, Image, ActivityIndicator, ScrollView, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
@@ -64,7 +64,7 @@ const fetalStyles = StyleSheet.create({
   },
 });
 
-const SafeSpotScreen = () => {
+const SafeSpotScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const [analysis, setAnalysis] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
@@ -96,7 +96,14 @@ const SafeSpotScreen = () => {
   const requestCameraPermissions = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert(t('permRequired'), t('cameraPermMsg'));
+      Alert.alert(
+        'Kamera İzni Gerekli',
+        'Güvenli alan analizi için cihazınızın ayarlarından kameraya izin vermeniz gerekmektedir.',
+        [
+          { text: 'Geri Dön', style: 'cancel', onPress: () => navigation?.goBack?.() },
+          { text: 'Ayarlara Git', onPress: () => Linking.openSettings() }
+        ]
+      );
       return false;
     }
     return true;
@@ -105,7 +112,14 @@ const SafeSpotScreen = () => {
   const requestMediaLibraryPermissions = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert(t('permRequired'), t('galleryPermMsg'));
+      Alert.alert(
+        'Galeri İzni Gerekli',
+        'Güvenli alan analizi için cihazınızın ayarlarından galeriye izin vermeniz gerekmektedir.',
+        [
+          { text: 'Geri Dön', style: 'cancel', onPress: () => navigation?.goBack?.() },
+          { text: 'Ayarlara Git', onPress: () => Linking.openSettings() }
+        ]
+      );
       return false;
     }
     return true;

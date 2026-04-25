@@ -119,6 +119,7 @@ const id = {
   faultDistLabel: 'Jarak Garis Patahan',
   slipRateLabel: 'Laju Pergeseran',
   slipRateUnit: 'mm/tahun',
+  expectedMagnitudeLabel: 'Magnitudo Maks. Perkiraan',
   riskInfoTitle: 'Analisis Risiko Seismik',
   riskInfoBody: 'Skor ini didasarkan pada peta bahaya global GEM, disesuaikan dengan jarak patahan dan laju pergeseran. Hanya untuk tujuan informasi.',
   locationPermTitle: 'Izin Lokasi Diperlukan',

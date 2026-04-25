@@ -21,7 +21,6 @@
     "expo-file-system": "~19.0.21",
     "expo-image-picker": "~17.0.10",
     "expo-location": "~19.0.8",
-    "expo-notifications": "~0.32.15",
     "expo-secure-store": "~15.0.8",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -34,6 +33,7 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "babel-plugin-transform-inline-environment-variables": "^0.4.4",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "latest"
   }
 }

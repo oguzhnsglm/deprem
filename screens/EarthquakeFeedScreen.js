@@ -185,6 +185,8 @@ const EarthquakeFeedScreen = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
 
+        <Text style={styles.disclaimerText}>{t('informationalOnlyShort')}</Text>
+
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
         {loading ? (
           <View style={styles.loader}>
@@ -306,6 +308,14 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 10,
     color: '#38BDF8',
+  },
+  disclaimerText: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginTop: -10,
+    marginBottom: 14,
   },
   errorText: {
     color: '#FCA5A5',

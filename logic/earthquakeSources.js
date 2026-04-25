@@ -1,22 +1,24 @@
-import { fetchIngvEvents } from './sources/ingv';
-import { fetchGeoNetEvents } from './sources/geonet';
-import { fetchJmaEvents } from './sources/jma';
-import { fetchBmkgEvents } from './sources/bmkg';
-import { fetchNoaEvents } from './sources/noa';
 import { getCountryConfig } from './countryConfig';
 import { getProfilePreferences } from './profileStore';
 import {
-  getRegionBoundsForCountry,
   getRegionOptionForCountry,
   getRegionOptionsForCountry,
 } from './worldCities';
 
-const TURKEY_BOUNDS = {
-  minLat: 34.5,
-  maxLat: 43.5,
-  minLon: 25,
-  maxLon: 45.5,
+const DEFAULT_LOOKBACK_DAYS = 2;
+const DEFAULT_LIMIT_PER_SOURCE = 500;
+const CACHE_TTL_MS = 60 * 1000;
+const aggregatedCache = new Map();
+
+const normalizeApiBase = (rawBase = '') => {
+  let cleaned = String(rawBase || '').trim().replace(/\/+$/, '');
+  if (!cleaned) return '';
+  cleaned = cleaned.replace('http://localhost', 'http://10.0.2.2');
+  cleaned = cleaned.replace('http://127.0.0.1', 'http://10.0.2.2');
+  return cleaned;
 };
+
+const EARTHQUAKE_API_BASE = normalizeApiBase(process.env.EXPO_PUBLIC_API_BASE || '');
 
 const asBoundsList = (bounds) => {
   if (!bounds) return [];
@@ -54,97 +56,6 @@ const getDistanceKm = (lat1, lon1, lat2, lon2) => {
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-// USGS bbox filtreli çekme (ülkeye özel sınırlar)
-const fetchUsgsEventsBbox = (bounds) => async (params) => {
-  const features = await fetchUsgsEvents(params);
-  return features.filter((e) => {
-    const lat = e.latitude;
-    const lon = e.longitude;
-    return isInsideAnyBounds(lat, lon, bounds);
-  });
-};
-
-const fetchUsgsEventsForRegions = (regionOptions) => async (params) => {
-  const features = await fetchUsgsEvents(params);
-  return features.filter((event) => matchesAnyRegionOption(event, regionOptions));
-};
-
-// Ülkeye özel ek kaynak seçici
-const getCountrySourceDefinition = (sourceKey, bounds, countryCode) => {
-  switch (sourceKey) {
-    case 'kandilli':
-      return { key: 'kandilli', label: 'Kandilli', fetcher: fetchKandilliEvents };
-    case 'ingv':
-      return { key: 'ingv', label: 'INGV', fetcher: fetchIngvEvents };
-    case 'geonet':
-      return { key: 'geonet', label: 'GeoNet', fetcher: fetchGeoNetEvents };
-    case 'jma':
-      return { key: 'jma', label: 'JMA', fetcher: fetchJmaEvents };
-    case 'bmkg':
-      return { key: 'bmkg', label: 'BMKG', fetcher: fetchBmkgEvents };
-    case 'noa':
-      return { key: 'noa', label: 'NOA', fetcher: fetchNoaEvents };
-    case 'usgs-bbox':
-      if (countryCode === 'US') {
-        const regionOptions = getRegionOptionsForCountry(countryCode);
-        return regionOptions.length
-          ? { key: 'usgs-local', label: 'USGS (Yerel)', fetcher: fetchUsgsEventsForRegions(regionOptions) }
-          : null;
-      }
-      return bounds
-        ? { key: 'usgs-local', label: 'USGS (Yerel)', fetcher: fetchUsgsEventsBbox(bounds) }
-        : null;
-    default:
-      return null;
-  }
-};
-
-const buildSourceDefinitions = () => {
-  const prefs = getProfilePreferences();
-  const countryConfig = getCountryConfig(prefs.country || 'TR');
-  const countrySource = getCountrySourceDefinition(
-    countryConfig.sourceKey,
-    countryConfig.code === 'US' ? getRegionBoundsForCountry(countryConfig.code) : countryConfig.bounds,
-    countryConfig.code
-  );
-
-  const definitions = [];
-
-  const usgsBounds = countryConfig.code === 'US'
-    ? getRegionBoundsForCountry(countryConfig.code)
-    : countryConfig.bounds;
-  const usgsDefinition = usgsBounds
-    ? { key: 'usgs-local', label: 'USGS', fetcher: fetchUsgsEventsBbox(usgsBounds) }
-    : { key: 'usgs', label: 'USGS', fetcher: fetchUsgsEvents };
-
-  if (countrySource?.key === 'usgs-local') {
-    // usgs-bbox ülkeler için sadece bbox-filtreli USGS kullan (global USGS ekleme)
-    definitions.push(countrySource);
-  } else {
-    definitions.push(usgsDefinition);
-    if (countrySource && countrySource.key !== 'usgs') {
-      definitions.push(countrySource);
-    }
-  }
-
-  return definitions;
-};
-
-const DEFAULT_LOOKBACK_DAYS = 2;
-const DEFAULT_LIMIT_PER_SOURCE = 500;
-const CACHE_TTL_MS = 60 * 1000;
-const aggregatedCache = new Map();
-
-const normalizeApiBase = (rawBase = '') => {
-  let cleaned = String(rawBase || '').trim().replace(/\/+$/, '');
-  if (!cleaned) return '';
-  cleaned = cleaned.replace('http://localhost', 'http://10.0.2.2');
-  cleaned = cleaned.replace('http://127.0.0.1', 'http://10.0.2.2');
-  return cleaned;
-};
-
-const EARTHQUAKE_API_BASE = normalizeApiBase(process.env.EXPO_PUBLIC_API_BASE || '');
-
 const TURKISH_CHAR_MAP = {
   ı: 'i',
   İ: 'i',
@@ -160,7 +71,6 @@ const TURKISH_CHAR_MAP = {
   Ç: 'c',
 };
 
-
 const normalizeText = (value = '') =>
   value
     .toString()
@@ -173,7 +83,7 @@ const normalizeText = (value = '') =>
 
 const normalizeRegionToken = (value = '') =>
   normalizeText(value)
-    .replace(/[.'’]/g, '')
+    .replace(/[.']/g, '')
     .replace(/\s+region$/i, '')
     .trim();
 
@@ -251,71 +161,32 @@ const matchesRegionOption = (event, regionOption, regionOptions = []) => {
   return areaMatch;
 };
 
-const matchesAnyRegionOption = (event, regionOptions = []) => {
-  if (!regionOptions.length) return true;
-  const detectedRegion = findRegionOptionForEvent(event, regionOptions);
-  if (detectedRegion) return true;
-  return regionOptions.some((option) => eventMatchesRegionBounds(event, option));
-};
+const ensureIsoString = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
 
-const ensureIsoString = (value, fallbackOffsetHours = 0) => {
-  if (!value) {
-    return null;
+  let candidate = String(value);
+  if (!candidate.includes('T') && candidate.includes(' ')) {
+    candidate = candidate.replace(' ', 'T');
   }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  let candidate = value;
-  if (typeof value === 'number') {
-    return new Date(value).toISOString();
-  }
-
-  if (!value.includes('T') && value.includes(' ')) {
-    candidate = value.replace(' ', 'T');
-  }
-
   if (!/[zZ]|([+-]\d{2}:?\d{2})$/.test(candidate)) {
-    const offsetHours = Number(fallbackOffsetHours);
-    if (Number.isFinite(offsetHours) && offsetHours !== 0) {
-      const sign = offsetHours >= 0 ? '+' : '-';
-      const absolute = Math.abs(offsetHours);
-      const hours = String(Math.floor(absolute)).padStart(2, '0');
-      const minutes = String(Math.round((absolute % 1) * 60)).padStart(2, '0');
-      candidate = `${candidate}${sign}${hours}:${minutes}`;
-    } else {
-      candidate = `${candidate}Z`;
-    }
+    candidate = `${candidate}Z`;
   }
-
   const dateValue = new Date(candidate);
   return Number.isNaN(dateValue.getTime()) ? null : dateValue.toISOString();
 };
 
 const matchesCity = (event, normalizedCity) => {
-  if (!normalizedCity) {
-    return true;
-  }
-
-  const fields = [
-    event.city,
-    event.province,
-    event.district,
-    event.location,
-    event.flynnRegion,
-  ];
-
-  return fields.some((field) => field && normalizeText(field).includes(normalizedCity));
+  if (!normalizedCity) return true;
+  return getEventTextFields(event).some((field) => normalizeText(field).includes(normalizedCity));
 };
 
 const dedupeEvents = (events = []) => {
   const seen = new Set();
   return events.filter((event) => {
     const key = `${event.source}-${event.id}`.toLowerCase();
-    if (seen.has(key)) {
-      return false;
-    }
+    if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
@@ -362,13 +233,13 @@ const sanitizeEvent = (event = {}) => {
   const isoTime = ensureIsoString(event.time || event.date);
   return {
     ...event,
-    id: event.id || `${event.source || 'Bilinmeyen'}-${isoTime || Date.now()}`,
-    source: event.source ? String(event.source).toUpperCase() : 'BİLİNMEYEN',
+    id: event.id || `${event.source || 'Unknown'}-${isoTime || Date.now()}`,
+    source: event.source ? String(event.source).toUpperCase() : 'UNKNOWN',
     latitude,
     longitude,
     magnitude,
     time: isoTime,
-    location: pickLocationText(event) || 'Konum doğrulanamadı',
+    location: pickLocationText(event) || 'Konum dogrulanamadi',
   };
 };
 
@@ -383,9 +254,7 @@ const filterTrustedEvents = (events = []) =>
         event.magnitude !== null &&
         Boolean(event.location);
 
-      if (!hasRequiredFields) {
-        return false;
-      }
+      if (!hasRequiredFields) return false;
 
       const coordsProvided = event.latitude !== null && event.longitude !== null;
       return !coordsProvided || isWithinBounds(event.latitude, event.longitude);
@@ -408,169 +277,35 @@ const buildVerificationDetails = ({
 const safeReadText = async (response) => {
   try {
     return await response.text();
-  } catch (error) {
+  } catch {
     return '';
+  }
+};
+
+const normalizeServerError = async (response) => {
+  const text = await safeReadText(response);
+  try {
+    const payload = JSON.parse(text);
+    return payload?.error?.message || payload?.message || `HTTP ${response.status}`;
+  } catch {
+    return text || `HTTP ${response.status}`;
   }
 };
 
 const fetchJson = async (url, options) => {
   const response = await fetch(url, options);
   if (!response.ok) {
-    const message = await safeReadText(response);
-    throw new Error(message || `HTTP ${response.status}`);
+    throw new Error(await normalizeServerError(response));
   }
   return response.json();
 };
 
-async function fetchKandilliEvents() {
-  const data = await fetchJson('https://api.orhanaydogdu.com.tr/deprem/kandilli/live');
-  const results = Array.isArray(data?.result) ? data.result : [];
-
-  return results.map((item) => {
-    const coords = typeof item.geojson?.coordinates === 'string' ? item.geojson.coordinates.split(' ') : [];
-    const longitude = parseNumber(coords?.[0]);
-    const latitude = parseNumber(coords?.[1]);
-    const closestCity = parseClosestCity(item.location_properties?.closestCity);
-
-    return {
-      id: item.earthquake_id,
-      source: 'Kandilli',
-      time: ensureIsoString(item.date_time, 3),
-      magnitude: parseNumber(item.mag),
-      depthKm: parseNumber(item.depth),
-      latitude,
-      longitude,
-      location: item.title,
-      province: closestCity,
-      city: closestCity,
-      district: undefined,
-      flynnRegion: item.location_properties?.epiCenter?.name,
-    };
-  });
-}
-
-const parseClosestCity = (raw) => {
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-  const match = raw.match(/name\s*=\s*([^;]+?)(;|$)/i);
-  if (!match) {
-    return undefined;
-  }
-  return match[1].trim();
-};
-
-// USGS real-time feed: dakikada bir güncellenir
-// all_day  → son 24 saat
-// all_week → son 7 gün
-const USGS_FEED_BASE = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary';
-
-async function fetchUsgsEvents({ startDate, minMagnitude }) {
-  const minMag = Number(minMagnitude) >= 0 ? Number(minMagnitude) : 0;
-  const feedUrl = minMag >= 4.5
-    ? `${USGS_FEED_BASE}/4.5_week.geojson`
-    : minMag >= 2.5
-      ? `${USGS_FEED_BASE}/2.5_week.geojson`
-      : `${USGS_FEED_BASE}/all_week.geojson`;
-
-  const data = await fetchJson(feedUrl);
-  const features = Array.isArray(data?.features) ? data.features : [];
-
-  const cutoff = startDate ? new Date(startDate).getTime() : 0;
-
-  return features
-    .filter((feature) => {
-      const t = feature.properties?.time;
-      return t && t >= cutoff;
-    })
-    .map((feature) => ({
-      id: feature.id,
-      source: 'USGS',
-      time: ensureIsoString(feature.properties?.time),
-      magnitude: parseNumber(feature.properties?.mag),
-      depthKm: parseNumber(feature.geometry?.coordinates?.[2]),
-      latitude: parseNumber(feature.geometry?.coordinates?.[1]),
-      longitude: parseNumber(feature.geometry?.coordinates?.[0]),
-      location: feature.properties?.place,
-      province: undefined,
-      city: undefined,
-      district: undefined,
-      flynnRegion: feature.properties?.place,
-      externalUrl: feature.properties?.url,
-    }));
-}
-
-async function fetchIrisEvents({ startDate, endDate, minMagnitude, limit }) {
-  const params = new URLSearchParams({
-    format: 'text',
-    starttime: startDate,
-    endtime: endDate,
-    minmag: String(minMagnitude ?? 2.5),
-    minlatitude: String(TURKEY_BOUNDS.minLat),
-    maxlatitude: String(TURKEY_BOUNDS.maxLat),
-    minlongitude: String(TURKEY_BOUNDS.minLon),
-    maxlongitude: String(TURKEY_BOUNDS.maxLon),
-    nodata: '404',
-  });
-
-  const response = await fetch(`https://service.iris.edu/fdsnws/event/1/query?${params.toString()}`);
-  if (!response.ok) {
-    const message = await safeReadText(response);
-    throw new Error(message || `HTTP ${response.status}`);
-  }
-
-  const text = await response.text();
-  const lines = text.split('\n').map((line) => line.trim());
-  const dataLines = lines.filter((line) => line && !line.startsWith('#'));
-  const limited = dataLines.slice(0, limit ?? 120);
-
-  return limited.map((line) => {
-    const [
-      eventId,
-      time,
-      latitude,
-      longitude,
-      depthKm,
-      author,
-      catalog,
-      contributor,
-      contributorId,
-      magType,
-      magnitude,
-      magAuthor,
-      location,
-    ] = line.split('|').map((value) => value?.trim());
-
-    return {
-      id: eventId,
-      source: 'IRIS',
-      time: ensureIsoString(time),
-      magnitude: parseNumber(magnitude),
-      depthKm: parseNumber(depthKm),
-      latitude: parseNumber(latitude),
-      longitude: parseNumber(longitude),
-      location,
-      province: undefined,
-      city: undefined,
-      district: undefined,
-      flynnRegion: location,
-      catalog,
-      author,
-      contributor,
-      contributorId,
-      magType,
-      magAuthor,
-    };
-  });
-}
-
-const buildCacheKey = ({ startDate, endDate, minMagnitude, limit, countryCode }) =>
+const buildCacheKey = ({ lookbackDays, minMagnitude, limitPerSource, countryCode }) =>
   [
-    startDate.slice(0, 19),
-    endDate.slice(0, 19),
-    Number(minMagnitude || 0).toFixed(1),
-    Number(limit || 0),
     countryCode || 'TR',
+    Number(lookbackDays || 0),
+    Number(minMagnitude || 0).toFixed(1),
+    Number(limitPerSource || 0),
   ].join('|');
 
 const fetchAggregatedEventsFromServer = async ({
@@ -580,7 +315,7 @@ const fetchAggregatedEventsFromServer = async ({
   limitPerSource,
 }) => {
   if (!EARTHQUAKE_API_BASE) {
-    return null;
+    throw new Error('EXPO_PUBLIC_API_BASE yapilandirilmadi. Deprem verileri server proxy uzerinden alinmalidir.');
   }
 
   const params = new URLSearchParams({
@@ -591,40 +326,30 @@ const fetchAggregatedEventsFromServer = async ({
   });
   const payload = await fetchJson(`${EARTHQUAKE_API_BASE}/api/earthquakes?${params.toString()}`);
   return {
-    events: Array.isArray(payload?.events) ? payload.events : [],
-    sourceMeta: Array.isArray(payload?.sourceMeta) ? payload.sourceMeta : [],
-    attribution: Array.isArray(payload?.attribution) ? payload.attribution : [],
-    fetchedAt: payload?.fetchedAt,
-    cache: payload?.cache,
+    events: Array.isArray(payload?.data?.events) ? payload.data.events : Array.isArray(payload?.events) ? payload.events : [],
+    sourceMeta: Array.isArray(payload?.data?.sourceMeta) ? payload.data.sourceMeta : Array.isArray(payload?.sourceMeta) ? payload.sourceMeta : [],
+    attribution: Array.isArray(payload?.data?.attribution) ? payload.data.attribution : Array.isArray(payload?.attribution) ? payload.attribution : [],
+    fetchedAt: payload?.data?.fetchedAt || payload?.fetchedAt,
+    cache: payload?.data?.cache || payload?.cache,
   };
 };
 
 const getAggregatedEvents = async ({ lookbackDays, minMagnitude, limitPerSource }) => {
-  const now = new Date();
   const lookback = Number(lookbackDays) > 0 ? Number(lookbackDays) : DEFAULT_LOOKBACK_DAYS;
-  const startDate = new Date(now.getTime() - lookback * 24 * 60 * 60 * 1000);
-  const endDate = now;
   const minMag = Number(minMagnitude) >= 0 ? Number(minMagnitude) : 2;
   const limit = Number(limitPerSource) > 0 ? Number(limitPerSource) : DEFAULT_LIMIT_PER_SOURCE;
-
-  const SOURCE_DEFINITIONS = buildSourceDefinitions();
   const countryCode = getProfilePreferences().country || 'TR';
 
   const cacheKey = buildCacheKey({
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
+    lookbackDays: lookback,
     minMagnitude: minMag,
-    limit,
+    limitPerSource: limit,
     countryCode,
   });
 
   const cached = aggregatedCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.payload;
-  }
-
-  if (!EARTHQUAKE_API_BASE) {
-    throw new Error('EXPO_PUBLIC_API_BASE yapılandırılmadı. Deprem verileri server proxy üzerinden alınmalıdır.');
   }
 
   const serverPayload = await fetchAggregatedEventsFromServer({
@@ -634,60 +359,17 @@ const getAggregatedEvents = async ({ lookbackDays, minMagnitude, limitPerSource 
     limitPerSource: limit,
   });
 
-  if (serverPayload) {
-    const payload = {
-      events: sortEventsDesc(dedupeEvents(serverPayload.events || [])),
-      sourceMeta: serverPayload.sourceMeta || [],
-      attribution: serverPayload.attribution || [],
-      fetchedAt: serverPayload.fetchedAt,
-      cache: serverPayload.cache,
-    };
-    aggregatedCache.set(cacheKey, {
-      timestamp: Date.now(),
-      payload,
-    });
-    return payload;
-  }
-
-  const sourceMeta = SOURCE_DEFINITIONS.map(({ key, label }) => ({
-    key,
-    label,
-    ok: false,
-    count: 0,
-    error: null,
-  }));
-
-  const fetchPromises = SOURCE_DEFINITIONS.map(({ fetcher }) =>
-    fetcher({
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      minMagnitude: minMag,
-      limit,
-    })
-  );
-
-  const settledResults = await Promise.allSettled(fetchPromises);
-  const collectedEvents = [];
-
-  settledResults.forEach((result, index) => {
-    const meta = sourceMeta[index];
-    if (result.status === 'fulfilled') {
-      meta.ok = true;
-      meta.count = Array.isArray(result.value) ? result.value.length : 0;
-      collectedEvents.push(...(result.value || []));
-    } else {
-      meta.error = result.reason?.message || String(result.reason);
-    }
-  });
-
-  const events = sortEventsDesc(dedupeEvents(collectedEvents));
-  const payload = { events, sourceMeta };
-
+  const payload = {
+    events: sortEventsDesc(dedupeEvents(serverPayload.events || [])),
+    sourceMeta: serverPayload.sourceMeta || [],
+    attribution: serverPayload.attribution || [],
+    fetchedAt: serverPayload.fetchedAt,
+    cache: serverPayload.cache,
+  };
   aggregatedCache.set(cacheKey, {
     timestamp: Date.now(),
     payload,
   });
-
   return payload;
 };
 
@@ -709,8 +391,6 @@ export const fetchCityEarthquakes = async ({
         if (hasRegionArea(selectedRegion)) {
           return matchesRegionOption(event, selectedRegion, regionOptions);
         }
-        // Local agency events (JMA, INGV, GeoNet, BMKG) use non-English location strings
-        // fall back to text only when no coordinate/radius area exists for the selected city.
         if (src !== 'USGS' && src !== 'KANDILLI') return true;
         return matchesCity(event, normalizedCity);
       })
@@ -727,9 +407,26 @@ export const fetchCityEarthquakes = async ({
     events: trustedEvents,
     usedFallback: false,
     sourceMeta: aggregated.sourceMeta,
+    attribution: aggregated.attribution,
     verification,
   };
 };
 
-export const getSourceMetaLabels = () =>
-  buildSourceDefinitions().map(({ key, label }) => ({ key, label }));
+const SOURCE_LABELS = {
+  kandilli: 'Kandilli',
+  ingv: 'INGV',
+  geonet: 'GeoNet',
+  jma: 'JMA',
+  bmkg: 'BMKG',
+  noa: 'NOA',
+};
+
+export const getSourceMetaLabels = () => {
+  const countryConfig = getCountryConfig(getProfilePreferences().country || 'TR');
+  const labels = [{ key: 'usgs-local', label: 'USGS' }];
+  const localLabel = SOURCE_LABELS[countryConfig.sourceKey];
+  if (localLabel && countryConfig.sourceKey !== 'usgs-bbox') {
+    labels.push({ key: countryConfig.sourceKey, label: localLabel });
+  }
+  return labels;
+};

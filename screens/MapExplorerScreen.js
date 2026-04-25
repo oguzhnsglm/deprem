@@ -94,12 +94,11 @@ const MapExplorerScreen = ({ navigation }) => {
 
   const [showHazardMap, setShowHazardMap] = useState(false);
 
-  const vs30ApiBaseRaw = process.env.EXPO_PUBLIC_VS30_API_BASE;
-  const vs30ApiBase = normalizeBaseUrl(vs30ApiBaseRaw);
+  const apiBaseRaw = process.env.EXPO_PUBLIC_API_BASE;
+  const vs30ApiBase = normalizeBaseUrl(apiBaseRaw);
   const vs30Available = Boolean(vs30ApiBase && isNativePlatform);
 
-  const mapApiBaseRaw = process.env.EXPO_PUBLIC_MAP_API_BASE || process.env.EXPO_PUBLIC_FAULT_API_BASE || vs30ApiBaseRaw;
-  const faultApiBase = normalizeBaseUrl(mapApiBaseRaw);
+  const faultApiBase = vs30ApiBase;
   const faultAvailable = Boolean(faultApiBase && isNativePlatform);
 
   const fetchTimeoutMsRaw = Number(process.env.EXPO_PUBLIC_MAP_FETCH_TIMEOUT_MS);
@@ -161,7 +160,7 @@ const MapExplorerScreen = ({ navigation }) => {
     console.log('[MapExplorer] bases', { vs30ApiBase, faultApiBase, fetchTimeoutMs });
     console.log('[MapExplorer] availability', { vs30Available, faultAvailable, canPickPoint, isNativePlatform });
     const tileUrl = faultApiBase
-      ? `${faultApiBase}/tiles/hazard/{z}/{x}/{y}.png  ← YERELden`
+      ? `${faultApiBase}/tiles/hazard-current/{z}/{x}/{y}.png  ← YERELden`
       : 'faultApiBase tanımsız — tile yüklenemiyor';
     console.log('[MapExplorer] tile kaynağı:', tileUrl);
   }, [vs30ApiBase, faultApiBase, fetchTimeoutMs, vs30Available, faultAvailable, canPickPoint]);
@@ -316,10 +315,10 @@ const MapExplorerScreen = ({ navigation }) => {
             >
               {showHazardMap && UrlTile && faultApiBase && (
                 <UrlTile
-                  urlTemplate={`${faultApiBase}/tiles/hazard-tiff/{z}/{x}/{y}.png`}
+                  urlTemplate={`${faultApiBase}/tiles/hazard-current/{z}/{x}/{y}.png`}
                   opacity={0.85}
                   zIndex={1}
-                  minimumZ={1}
+                  minimumZ={0}
                   maximumZ={12}
                   maximumNativeZ={10}
                 />
@@ -442,6 +441,14 @@ const MapExplorerScreen = ({ navigation }) => {
                             {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} ${t('slipRateUnit')}` : '—'}
                           </Text>
                         </View>
+                        {faultInfo.expected_magnitude?.min != null && faultInfo.expected_magnitude?.max != null ? (
+                          <View style={styles.riskComponentRow}>
+                            <Text style={styles.riskComponentLabel}>{t('expectedMagnitudeLabel')}</Text>
+                            <Text style={styles.riskComponentValue}>
+                              Mw {faultInfo.expected_magnitude.min.toFixed(1)}–{faultInfo.expected_magnitude.max.toFixed(1)}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
 
                       {faultInfo.note ? (

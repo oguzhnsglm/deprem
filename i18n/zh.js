@@ -119,6 +119,7 @@ const zh = {
   faultDistLabel: '断层线距离',
   slipRateLabel: '滑动速率',
   slipRateUnit: 'mm/年',
+  expectedMagnitudeLabel: '预期最大震级',
   riskInfoTitle: '地震风险分析',
   riskInfoBody: '此评分基于GEM全球危险图，根据断层距离和滑动速率进行调整。仅供参考，不能替代官方地质调查。',
   locationPermTitle: '需要位置权限',

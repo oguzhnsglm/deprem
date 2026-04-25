@@ -3,6 +3,7 @@ import { Platform, StatusBar, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import StackNavigator from './navigation/StackNavigator';
 import BottomNavBar from './components/BottomNavBar';
+import ErrorBoundary from './components/ErrorBoundary';
 import { getProfilePreferences } from './logic/profileStore';
 import { initAuth } from './logic/authStore';
 import { loadProfile, loadLocalPreferences } from './logic/profileService';
@@ -75,17 +76,19 @@ export default function App() {
   };
 
   return (
-    <I18nProvider initialLang={initialLang}>
-      <View style={{ flex: 1, backgroundColor: '#0A0F1E' }}>
-        <StatusBar barStyle="light-content" />
-        <NavigationContainer theme={navigationTheme} ref={navigationRef} onReady={handleNavReady} onStateChange={handleStateChange}>
-          <StackNavigator />
-        </NavigationContainer>
-        {navigationReady ? (
-          <BottomNavBar navigation={navigationRef} activeTab={activeTab} city={preferredCity} floating />
-        ) : null}
-      </View>
-    </I18nProvider>
+    <ErrorBoundary>
+      <I18nProvider initialLang={initialLang}>
+        <View style={{ flex: 1, backgroundColor: '#0A0F1E' }}>
+          <StatusBar barStyle="light-content" />
+          <NavigationContainer theme={navigationTheme} ref={navigationRef} onReady={handleNavReady} onStateChange={handleStateChange}>
+            <StackNavigator />
+          </NavigationContainer>
+          {navigationReady ? (
+            <BottomNavBar navigation={navigationRef} activeTab={activeTab} city={preferredCity} floating />
+          ) : null}
+        </View>
+      </I18nProvider>
+    </ErrorBoundary>
   );
 }
 
