@@ -33,7 +33,7 @@ PERMISSIONS (rationale)
 DATA & PRIVACY
 - No third-party advertising or tracking SDKs.
 - OpenAI API key is server-side only; no keys are bundled in the client.
-- Detailed privacy policy at: https://quakeguide.support/privacy
+- Detailed privacy policy at: https://oguzhnsglm.github.io/deprem/docs/privacy-site/
 - Deletion requests: quakeguide.support@gmail.com (processed within 30 days).
 
 CONTACT
@@ -50,7 +50,7 @@ This build is intended for closed testing.
 - Anonymous Supabase login; no sign-up required.
 - Location permission is optional; the app works without it (map features limited).
 - Backend: https://<YOUR_DEPLOYED_API>   ← production URL'yi buraya yazın
-- Privacy policy: https://quakeguide.support/privacy
+- Privacy policy: https://oguzhnsglm.github.io/deprem/docs/privacy-site/
 ```
 
 ---

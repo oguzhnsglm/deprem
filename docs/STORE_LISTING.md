@@ -81,9 +81,9 @@ QuakeGuide does not sell your data or use it for advertising. Your location stay
 - **Google Play:** Everyone (Tüm Yaşlar)
 
 ## Contact & URLs
-- **Support URL:** https://quakeguide.support  *(GitHub Pages yayınlandıktan sonra doğrulayın)*
+- **Support URL:** https://oguzhnsglm.github.io/deprem/docs/privacy-site/support.html  *(GitHub Pages yayınlandıktan sonra doğrulayın)*
 - **Marketing URL:** (opsiyonel, aynı URL kullanılabilir)
-- **Privacy Policy URL:** https://quakeguide.support/privacy
+- **Privacy Policy URL:** https://oguzhnsglm.github.io/deprem/docs/privacy-site/
 - **Contact Email:** quakeguide.support@gmail.com
 
 ## What's New (ilk sürüm, 500 kar.)
