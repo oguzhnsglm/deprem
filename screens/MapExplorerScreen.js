@@ -62,13 +62,13 @@ const getDefaultRegion = () => {
 const MapExplorerScreen = ({ navigation }) => {
   const { t } = useTranslation();
 
-  const describeSoilStrength = (vs30) => {
-    if (typeof vs30 !== 'number') return null;
-    if (vs30 >= 1500) return { level: t('riskLevelVeryLow'), color: '#10B981', desc: t('soilVeryLowDesc') };
-    if (vs30 >= 760)  return { level: t('riskLevelLow'),    color: '#34D399', desc: t('soilLowDesc') };
-    if (vs30 >= 360)  return { level: t('riskLevelMedium'), color: '#FACC15', desc: t('soilMediumDesc') };
-    if (vs30 >= 180)  return { level: t('riskLevelHigh'),   color: '#F87171', desc: t('soilHighDesc') };
-    return { level: t('riskLevelVeryHigh'), color: '#EF4444', desc: t('soilVeryHighDesc') };
+  const describeSoilStrength = (score) => {
+    if (typeof score !== 'number') return null;
+    if (score >= 80) return { level: t('riskLevelLow'), color: '#34D399', desc: t('soilVeryLowDesc') }; // Pastel Yeşil
+    if (score >= 60) return { level: t('riskLevelLow'), color: '#A3E635', desc: t('soilLowDesc') }; // Pastel Açık Yeşil
+    if (score >= 45) return { level: t('riskLevelMedium'), color: '#FDE047', desc: t('soilMediumDesc') }; // Pastel Sarı
+    if (score >= 30) return { level: t('riskLevelHigh'), color: '#FDBA74', desc: t('soilHighDesc') }; // Pastel Turuncu
+    return { level: t('riskLevelHigh'), color: '#FCA5A5', desc: t('soilVeryHighDesc') }; // Pastel Kırmızı
   };
 
   const describeFaultRisk = (score) => {
@@ -335,65 +335,10 @@ const MapExplorerScreen = ({ navigation }) => {
             ) : null}
 
             <View style={styles.overlayStack}>
-              <View style={styles.vs30Card}>
-                <Text style={styles.vs30Title}>{t('soilTitle')}</Text>
-                {!vs30Available ? (
-                  <Text style={styles.vs30Hint}>{t('soilNotAvailable')}</Text>
-                ) : vs30Loading ? (
-                  <View style={styles.vs30Row}>
-                    <ActivityIndicator color="#f472b6" size="small" />
-                    <Text style={[styles.vs30Hint, { marginLeft: 10 }]}>{t('soilLoading')}</Text>
-                  </View>
-                ) : vs30Info ? (
-                  <>
-                    {(() => {
-                      const soil = typeof vs30Info.vs30 === 'number' ? describeSoilStrength(vs30Info.vs30) : null;
-                      return (
-                        <>
-                          <View style={styles.vs30Row}>
-                            <Text style={styles.vs30Value}>{vs30Info.vs30 ?? 'N/A'}</Text>
-                            <Text style={styles.vs30Unit}>m/s</Text>
-                            <View style={styles.vs30Badge}>
-                              <Text style={styles.vs30BadgeText}>{vs30Info.soilClass ?? '--'}</Text>
-                            </View>
-                            {soil && (
-                              <View style={[styles.riskLevelBadge, { borderColor: soil.color + '55', backgroundColor: soil.color + '18', marginLeft: 6 }]}>
-                                <Text style={[styles.riskLevelText, { color: soil.color }]}>{soil.level}</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Text style={styles.vs30Coords}>
-                            {vs30Info.lat?.toFixed(4)}, {vs30Info.lon?.toFixed(4)}
-                          </Text>
-                          {soil && (
-                            <Text style={styles.vs30Hint}>{soil.desc}</Text>
-                          )}
-                        </>
-                      );
-                    })()}
-                    {faultInfo?.regional_hazard_score != null && (
-                      <Text style={[styles.vs30Hint, { marginTop: 8 }]}>
-                        {t('gemHazardScore') + '  '}
-                        <Text style={{ color: '#FDE047', fontWeight: '800' }}>
-                          %{faultInfo.regional_hazard_score}
-                        </Text>
-                      </Text>
-                    )}
-                    {vs30Info.vs30 == null && (
-                      <Text style={styles.vs30Hint}>{t('soilNoVs30')}</Text>
-                    )}
-                  </>
-                ) : vs30Error ? (
-                  <Text style={styles.vs30Error}>{vs30Error}</Text>
-                ) : (
-                  <Text style={styles.vs30Hint}>{t('soilLongPress')}</Text>
-                )}
-              </View>
-
-              {isNativePlatform && (
-                <View style={styles.faultCard}>
+              <View style={styles.analysisCard}>
+                <View style={styles.analysisSection}>
                   <View style={styles.cardHeaderRow}>
-                    <Text style={styles.faultTitle}>{t('faultCardTitle')}</Text>
+                    <Text style={styles.faultTitle}>RİSK ANALİZİ</Text>
                     <TouchableOpacity
                       style={styles.infoButton}
                       onPress={showRiskInfo}
@@ -404,66 +349,128 @@ const MapExplorerScreen = ({ navigation }) => {
                       <Text style={styles.infoButtonText}>i</Text>
                     </TouchableOpacity>
                   </View>
-                  {!faultAvailable ? (
+
+                  {!faultAvailable && !vs30Available ? (
                     <Text style={styles.faultHint}>{t('faultNotAvailable')}</Text>
-                  ) : faultLoading ? (
+                  ) : (!faultInfo && !vs30Info && selectedSoilPoint) ? (
                     <View style={styles.faultRow}>
                       <ActivityIndicator color="#fde047" size="small" />
-                      <Text style={[styles.faultHint, { marginLeft: 10 }]}>{t('faultLoading')}</Text>
+                      <Text style={[styles.faultHint, { marginLeft: 10 }]}>{t('faultCalculating')}</Text>
                     </View>
-                  ) : faultInfo ? (
+                  ) : faultInfo || vs30Info ? (
                     <>
-                      {(() => {
+                      {/* --- SİSMİK RİSK & BEKLENEN SARSINTI KARTLARI --- */}
+                      {faultInfo && (() => {
                         const risk = describeFaultRisk(faultInfo.seismic_risk_score ?? faultInfo.proximity_score);
                         return (
-                          <View style={styles.riskScoreRow}>
-                            <Text style={[styles.riskScoreBig, { color: risk.color }]}>
-                              {faultInfo.seismic_risk_score ?? faultInfo.proximity_score ?? '--'}
-                            </Text>
-                            <Text style={styles.riskScoreMax}>/100</Text>
-                            <View style={[styles.riskLevelBadge, { borderColor: risk.color + '55', backgroundColor: risk.color + '18' }]}>
-                              <Text style={[styles.riskLevelText, { color: risk.color }]}>{risk.level}</Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingBottom: 14, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                                <Text style={{ fontSize: 36, fontWeight: '900', color: risk.color, lineHeight: 40 }}>
+                                  {faultInfo.seismic_risk_score ?? faultInfo.proximity_score ?? '--'}
+                                </Text>
+                                <Text style={{ fontSize: 13, color: '#64748B', marginLeft: 2, fontWeight: '700' }}>/100</Text>
+                              </View>
+                              <View style={[styles.riskLevelBadge, { borderColor: risk.color + '44', backgroundColor: risk.color + '15', alignSelf: 'flex-start', marginTop: 4, marginLeft: 0 }]}>
+                                <Text style={[styles.riskLevelText, { color: risk.color }]}>{risk.level}</Text>
+                              </View>
                             </View>
+
+                            {/* Dikey Ayraç */}
+                            <View style={{ width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 16 }} />
+
+                            {faultInfo.expected_magnitude?.min != null && faultInfo.expected_magnitude?.max != null && (
+                              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                                <Text style={{ fontSize: 11, color: '#94A3B8', fontWeight: '700', marginBottom: 2, letterSpacing: 0.5 }}>TAHMİNİ MAKS.</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                                  <Text style={{ fontSize: 24, fontWeight: '900', color: '#FDE047', lineHeight: 28 }}>
+                                    {faultInfo.expected_magnitude.min.toFixed(1)} - {faultInfo.expected_magnitude.max.toFixed(1)}
+                                  </Text>
+                                  <Text style={{ fontSize: 13, color: '#FDE047', marginLeft: 4, fontWeight: '800' }}>Mw</Text>
+                                </View>
+                              </View>
+                            )}
                           </View>
                         );
                       })()}
 
                       <View style={styles.riskComponents}>
-                        <View style={styles.riskComponentRow}>
-                          <Text style={styles.riskComponentLabel}>{t('faultDistLabel')}</Text>
-                          <Text style={styles.riskComponentValue}>
-                            {faultInfo.distance_km != null ? `${faultInfo.distance_km} km` : '—'}
-                          </Text>
-                        </View>
-                        <View style={styles.riskComponentRow}>
-                          <Text style={styles.riskComponentLabel}>{t('slipRateLabel')}</Text>
-                          <Text style={styles.riskComponentValue}>
-                            {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} ${t('slipRateUnit')}` : '—'}
-                          </Text>
-                        </View>
-                        {faultInfo.expected_magnitude?.min != null && faultInfo.expected_magnitude?.max != null ? (
-                          <View style={styles.riskComponentRow}>
-                            <Text style={styles.riskComponentLabel}>{t('expectedMagnitudeLabel')}</Text>
-                            <Text style={styles.riskComponentValue}>
-                              Mw {faultInfo.expected_magnitude.min.toFixed(1)}–{faultInfo.expected_magnitude.max.toFixed(1)}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
+                        {/* --- ZEMİN SERTLİĞİ (VURGULU SUB-COMPONENT) --- */}
+                        {/* --- ZEMİN SERTLİĞİ (VURGULU SUB-COMPONENT) --- */}
+                        {vs30Available && (() => {
+                          const soilScore = vs30Info?.vs30 ? Math.min(100, Math.round((vs30Info.vs30 / 800) * 100)) : 0;
+                          const soil = typeof soilScore === 'number' && vs30Info?.vs30 ? describeSoilStrength(soilScore) : null;
+                          return (
+                            <View style={[styles.riskComponentRow, { marginVertical: 8, paddingVertical: 12, borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', flexDirection: 'column', alignItems: 'stretch' }]}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {/* SOL TARAF: Etiket ve m/s Değeri */}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.riskComponentLabel, { fontSize: 13, color: '#CBD5E1' }]}>{t('soilTitle')}</Text>
+                                  {vs30Info?.vs30 != null && (
+                                    <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>
+                                      {vs30Info.vs30} m/s {vs30Info.soilClass ? `(Sınıf ${vs30Info.soilClass})` : ''}
+                                    </Text>
+                                  )}
+                                </View>
+                                
+                                {/* SAĞ TARAF: Yüzdelik Skor ve Risk Seviyesi */}
+                                {vs30Info ? (
+                                  <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                                    <Text style={{ fontSize: 24, fontWeight: '900', color: soil?.color || '#F472B6' }}>
+                                      %{soilScore}
+                                    </Text>
+                                    {soil && (
+                                      <View style={[styles.riskLevelBadge, { borderColor: soil.color + '55', backgroundColor: soil.color + '18', marginLeft: 8, marginBottom: 0 }]}>
+                                        <Text style={[styles.riskLevelText, { color: soil.color }]}>{soil.level}</Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                ) : vs30Error ? (
+                                  <Text style={styles.vs30Error}>{vs30Error}</Text>
+                                ) : selectedSoilPoint ? (
+                                  <ActivityIndicator color="#f472b6" size="small" />
+                                ) : (
+                                  <Text style={styles.faultHint}>-</Text>
+                                )}
+                              </View>
+                              
+                              {/* AÇIKLAMA METNİ (Geri getirildi) */}
+                              {soil?.desc && (
+                                <Text style={[styles.faultHint, { marginTop: 6, fontSize: 11 }]}>{soil.desc}</Text>
+                              )}
+                            </View>
+                          );
+                        })()}
 
-                      {faultInfo.note ? (
-                        <Text style={styles.faultNote}>{faultInfo.note}</Text>
-                      ) : null}
+                        {/* --- DİĞER RİSK ÖZELLİKLERİ --- */}
+                        {faultInfo && (
+                          <>
+                            <View style={styles.riskComponentRow}>
+                              <Text style={styles.riskComponentLabel}>{t('faultDistLabel')}</Text>
+                              <Text style={styles.riskComponentValue}>
+                                {faultInfo.distance_km != null ? `${faultInfo.distance_km} km` : '—'}
+                              </Text>
+                            </View>
+                            <View style={styles.riskComponentRow}>
+                              <Text style={styles.riskComponentLabel}>{t('slipRateLabel')}</Text>
+                              <Text style={styles.riskComponentValue}>
+                                {faultInfo.slip_rate_mm_per_year != null ? `${faultInfo.slip_rate_mm_per_year} ${t('slipRateUnit')}` : '—'}
+                              </Text>
+                            </View>
+
+                            {/* FAY AÇIKLAMA METNİ (Geri getirildi) */}
+                            {faultInfo.note ? (
+                              <Text style={[styles.faultNote, { marginTop: 8, fontSize: 11 }]}>{faultInfo.note}</Text>
+                            ) : null}
+                          </>
+                        )}
+                      </View>
                     </>
-                  ) : faultError ? (
-                    <Text style={styles.faultError}>{faultError}</Text>
-                  ) : selectedSoilPoint ? (
-                    <Text style={styles.faultHint}>{t('faultCalculating')}</Text>
                   ) : (
                     <Text style={styles.faultHint}>{t('faultLongPress')}</Text>
                   )}
                 </View>
-              )}
+              </View>
 
               <Text style={styles.overlayNote}>{overlayNote}</Text>
             </View>
@@ -601,18 +608,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
   },
-  vs30Card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.92)', // Hem biraz daha mat hem transparan
-    borderRadius: 20, // Köşeler ufaltıldı
-    padding: 16, // Daraltıldı
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)', 
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
   vs30Title: {
     color: '#94A3B8', // Slate 400
     fontSize: 11, // Ufaltıldı
@@ -670,18 +665,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.5,
   },
-  faultCard: {
+  analysisCard: {
     backgroundColor: 'rgba(15, 23, 42, 0.92)',
     borderRadius: 20,
-    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginTop: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
+    overflow: 'hidden',
+  },
+  analysisSection: {
+    padding: 16,
+    paddingBottom: 14,
   },
   faultTitle: {
     color: '#94A3B8', // Slate 400

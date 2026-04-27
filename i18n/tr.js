@@ -174,11 +174,11 @@ const tr = {
   riskLevelHigh: 'Yüksek Risk',
   riskLevelVeryHigh: 'Çok Yüksek Risk',
   riskLevelUnknown: 'Bilinmeyen Risk',
-  soilVeryLowDesc: 'Çok sert kaya; deprem dalgalarını pek büyütmez, yer ivmesi düşük.',
-  soilLowDesc: 'Sert kaya; stabil yapı sunar, yer sarsıntısı riski genel olarak düşüktür.',
-  soilMediumDesc: 'Orta sertlikte kaya/yarı sert zemin; standart seviye sarsıntı gözlenir.',
-  soilHighDesc: 'Yumuşak zemin; dalga büyütmesi belirgindir, yapılar şiddetli sarsılır.',
-  soilVeryHighDesc: 'Çok yumuşak/gevşek zemin; dalgaları kuvvetle büyütür ve sıvılaşma riski taşır.',
+  soilVeryLowDesc: 'Çok sert kaya formundadır.',
+  soilLowDesc: 'Sert kaya formundadır.',
+  soilMediumDesc: 'Orta sertlikte kaya veya yarı sert zemin yapısına sahiptir.',
+  soilHighDesc: 'Yumuşak zemin karakteristiği göstermektedir.',
+  soilVeryHighDesc: 'Çok yumuşak veya gevşek zemin karakteristiği göstermektedir.',
 
   // SafeSpot
   safeSpotTitle: 'Güvenli Alan Analizi',
