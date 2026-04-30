@@ -4,7 +4,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import PrimaryButton from '../components/PrimaryButton';
 import { getProfilePreferences, setProfilePreferences } from '../logic/profileStore';
 import { computeTabOrder, navigateTabRoute } from '../navigation/tabOrder';
-import { getCurrentUser } from '../logic/authStore';
+import { getCurrentUser, isAnonymousUser, signOut, onAuthStateChange } from '../logic/authStore';
 import { loadProfile, saveProfile } from '../logic/profileService';
 import { useTranslation, SUPPORTED_LANGUAGES } from '../i18n/index';
 import { COUNTRY_LIST, getCountryConfig } from '../logic/countryConfig';
@@ -40,6 +40,12 @@ const ProfileScreen = ({ navigation }) => {
     language: storedPrefs.language || 'tr',
     country: storedPrefs.country || 'TR',
   });
+
+  const [authTick, setAuthTick] = useState(0);
+  useEffect(() => {
+    const sub = onAuthStateChange(() => setAuthTick((v) => v + 1));
+    return () => sub?.unsubscribe?.();
+  }, []);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isFilled, setIsFilled] = useState(false);
@@ -199,6 +205,50 @@ const ProfileScreen = ({ navigation }) => {
               <InfoRow label={t('dataSource')} value={getCountryConfig(profile.country)?.sourceLabel} />
             </View>
           ) : null}
+
+          {(() => {
+            const user = getCurrentUser();
+            const anon = isAnonymousUser();
+            if (anon) {
+              return (
+                <View>
+                  <TouchableOpacity
+                    style={styles.legalButton}
+                    onPress={() => navigation.navigate('SignUp')}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.legalButtonTextWrap}>
+                      <Text style={styles.legalButtonTitle}>{t('createAccount')}</Text>
+                      <Text style={styles.legalButtonSubtitle}>{t('createAccountHint')}</Text>
+                    </View>
+                    <Text style={styles.legalButtonArrow}>›</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.legalButton}
+                    onPress={() => navigation.navigate('SignIn')}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.legalButtonTextWrap}>
+                      <Text style={styles.legalButtonTitle}>{t('signInTitle')}</Text>
+                      <Text style={styles.legalButtonSubtitle}>{t('signInHint')}</Text>
+                    </View>
+                    <Text style={styles.legalButtonArrow}>›</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+            return (
+              <View style={styles.legalButton}>
+                <View style={styles.legalButtonTextWrap}>
+                  <Text style={styles.legalButtonTitle}>{t('accountEmail')}</Text>
+                  <Text style={styles.legalButtonSubtitle}>{user?.email || '—'}</Text>
+                </View>
+                <TouchableOpacity onPress={async () => { await signOut(); }} activeOpacity={0.7}>
+                  <Text style={styles.signOutText}>{t('signOut')}</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
 
           <TouchableOpacity
             style={styles.legalButton}
@@ -564,6 +614,17 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 28,
     fontWeight: '300',
+  },
+  signOutText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    fontWeight: '800',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(252, 165, 165, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(252, 165, 165, 0.25)',
   },
 });
 

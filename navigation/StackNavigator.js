@@ -10,6 +10,9 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EarthquakeFeedScreen from '../screens/EarthquakeFeedScreen';
 import DataSourcesScreen from '../screens/DataSourcesScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import SignUpScreen from '../screens/SignUpScreen';
+import SignInScreen from '../screens/SignInScreen';
+import OtpVerificationScreen from '../screens/OtpVerificationScreen';
 
 // Conditionally import MapExplorerScreen only on native platforms
 let MapExplorerScreen = null;
@@ -45,6 +48,9 @@ const StackNavigator = () => {
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profilim', headerBackVisible: false }} />
       <Stack.Screen name="DataSources" component={DataSourcesScreen} options={{ title: 'Veri Kaynaklari ve Lisanslar' }} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Gizlilik Politikasi' }} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} options={{ title: 'Kayit Ol' }} />
+      <Stack.Screen name="SignIn" component={SignInScreen} options={{ title: 'Giris Yap' }} />
+      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} options={{ title: 'Email Onayi' }} />
       <Stack.Screen
         name="EarthquakeFeed"
         component={EarthquakeFeedScreen}
